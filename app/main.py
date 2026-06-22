@@ -1,11 +1,21 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from starlette.responses import JSONResponse
 
+from app.database import setup_tables
 from app.models.status import Status
 from app.responses import responses
 from app.responses.exceptions import HTTPException
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    await setup_tables()
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 
 @app.exception_handler(HTTPException)
