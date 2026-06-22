@@ -5,7 +5,7 @@ from sqlalchemy.orm import declared_attr
 from sqlmodel import Field, SQLModel
 
 
-class BaseTable(SQLModel):
+class Base(SQLModel):
     class Config:
         alias_generator = to_camel
         populate_by_name = True
@@ -21,7 +21,7 @@ class BaseTable(SQLModel):
         return typename.removesuffix("table")
 
 
-class PrimaryKeyBase(BaseTable):
+class PrimaryKeyBase(Base):
     primary_key: Optional[int] = Field(
         default=None,
         primary_key=True,

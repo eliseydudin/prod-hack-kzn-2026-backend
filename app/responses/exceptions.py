@@ -1,3 +1,4 @@
+from functools import lru_cache
 from typing import Any, ClassVar
 
 from pydantic import Field, TypeAdapter
@@ -9,6 +10,7 @@ from app.models.types.time import Timestamp, utc_now
 
 class TypeAdapterPropertyMeta(type):
     @property
+    @lru_cache(1)
     def type_adapter(self):
         return TypeAdapter(self)
 
