@@ -1,7 +1,8 @@
-from dataclasses import dataclass, field
 from typing import Any, ClassVar
 
-from pydantic import TypeAdapter
+from pydantic import Field, TypeAdapter
+from pydantic.alias_generators import to_camel
+from pydantic.dataclasses import dataclass
 
 from app.models.types.time import Timestamp, utc_now
 
@@ -12,14 +13,14 @@ class TypeAdapterPropertyMeta(type):
         return TypeAdapter(self)
 
 
-@dataclass(kw_only=True)
+@dataclass(kw_only=True, config={"alias_generator": to_camel})
 class HTTPException(Exception, metaclass=TypeAdapterPropertyMeta):
     status_code: ClassVar[int] = 400
     default_message: ClassVar[str] = "An error has occured"
 
-    detail: dict[str, Any] = field(default_factory=dict)
+    detail: dict[str, Any] = Field(default_factory=dict)
     message: str = default_message
-    occured_at: Timestamp = field(default_factory=utc_now)
+    occured_at: Timestamp = Field(default_factory=utc_now)
 
     def __post_init__(self):
         if self.message == HTTPException.default_message:
@@ -62,3 +63,15 @@ class ConflictError(HTTPException):
 class GoneError(HTTPException):
     status_code = 410
     default_message = "Gone"
+
+
+@dataclass
+class InternalServerError(HTTPException):
+    status_code = 500
+    default_message = "Internal server error"
+
+
+@dataclass
+class ServiceUnavailableError(HTTPException):
+    status_code = 503
+    default_message = "Service unavailable"
