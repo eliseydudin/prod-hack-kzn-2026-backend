@@ -1,14 +1,19 @@
-from typing import TypeVar, Union
+from typing import Annotated, TypeVar, Union
 
 import jwt
+from fastapi import Depends
+from fastapi.security.oauth2 import OAuth2PasswordBearer
 from sqlmodel import select
 
+from app.database.connection import SessionDep
 from app.database.session import Session
 from app.models.auth import AuthToken, RefreshToken
 from app.models.base import Base
 from app.models.user import UserTable
 from app.responses.exceptions import AuthorizationError, NotFoundError
 from app.settings import settings
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 
 def encode_token(token: Union[RefreshToken, AuthToken]) -> str:
@@ -44,3 +49,10 @@ async def get_user_by_token(session: Session, token: str):
         return user
     except jwt.PyJWTError, NotFoundError:
         raise AuthorizationError
+
+
+async def get_current_user(session: SessionDep, token: str = Depends(oauth2_scheme)):
+    return await get_user_by_token(session, token)
+
+
+CurrentUser = Annotated[UserTable, Depends(get_current_user)]

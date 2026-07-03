@@ -16,8 +16,7 @@ class Session(AsyncSession):
         self,
         statement: TypedReturnsRows[tuple[_T]],
     ) -> Optional[_T]:
-        res = (await self.exec(statement)).one_or_none()
-        return res[0] if res else None
+        return (await self.exec(statement)).one_or_none()  # type: ignore
 
     async def exec_get_one(self, statement: TypedReturnsRows[tuple[_T]]) -> _T:
-        return (await self.exec(statement)).one()[0]
+        return (await self.exec(statement)).one()  # type: ignore
