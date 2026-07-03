@@ -1,4 +1,5 @@
 from typing import Optional
+from uuid import UUID, uuid4
 
 from pydantic.alias_generators import to_camel
 from sqlalchemy.orm import declared_attr
@@ -26,3 +27,7 @@ class PrimaryKeyBase(Base):
         default=None,
         primary_key=True,
     )
+
+
+class UUIDBase(Base):
+    id: UUID = Field(default_factory=uuid4)

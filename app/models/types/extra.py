@@ -7,15 +7,23 @@ def Extra(
     *,
     example: Optional[_T] = None,
     examples: Optional[Sequence[_T]] = None,
+    pattern: Optional[str] = None,
+    format: Optional[str] = None,
 ):
-    assert (example is None) != (examples is None), (
+    assert not (example is not None and examples is not None), (
         "choose one between `example` and `examples`"
     )
     result: dict[str, Any] = {}
 
-    if example is not None:
+    if example:
         result["examples"] = [example]
-    elif examples is not None:
+    elif examples:
         result["examples"] = list(examples)
+
+    if pattern:
+        result["pattern"] = pattern
+
+    if format:
+        result["format"] = format
 
     return result

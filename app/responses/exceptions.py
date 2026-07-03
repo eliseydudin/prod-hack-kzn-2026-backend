@@ -1,4 +1,3 @@
-from functools import cached_property
 from typing import Any, ClassVar
 
 from pydantic import Field, TypeAdapter
@@ -8,14 +7,8 @@ from pydantic.dataclasses import dataclass
 from app.models.types.time import Timestamp, utc_now
 
 
-class TypeAdapterPropertyMeta(type):
-    @cached_property
-    def type_adapter(self):
-        return TypeAdapter(self)
-
-
 @dataclass(kw_only=True, config={"alias_generator": to_camel})
-class HTTPException(Exception, metaclass=TypeAdapterPropertyMeta):
+class HTTPException(Exception):
     status_code: ClassVar[int] = 400
     default_message: ClassVar[str] = "An error has occured"
 
@@ -27,8 +20,8 @@ class HTTPException(Exception, metaclass=TypeAdapterPropertyMeta):
         if self.message == HTTPException.default_message:
             self.message = type(self).default_message
 
-    def dump_json(self):
-        return type(self).type_adapter.dump_python(self, mode="json")
+    def dump_python(self) -> Any:
+        return TypeAdapter(type(self)).dump_python(self, mode="json")
 
 
 @dataclass

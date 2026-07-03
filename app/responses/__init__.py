@@ -28,7 +28,6 @@ def responses(*args: Content | type[HTTPException]):
             result[arg.status_code]["content"][arg.content_type] = {}
         else:
             result[arg.status_code] = {"model": arg}
-
     return result
 
 

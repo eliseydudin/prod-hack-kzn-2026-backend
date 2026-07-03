@@ -1,53 +1,44 @@
-from functools import cached_property
 from os import path
-from typing import Annotated, Optional
+from typing import Optional
 
-from pydantic import UrlConstraints, field_validator, model_validator
-from pydantic_core import MultiHostUrl
+from pydantic import field_validator
 from pydantic_extra_types.dsn import PostgresDsn
 from pydantic_settings import BaseSettings
-
-AsyncSqliteDsn = Annotated[
-    MultiHostUrl,
-    UrlConstraints(
-        host_required=False,
-        allowed_schemes=[
-            "sqlite+aiosqlite",
-        ],
-    ),
-]
-
-DOTENV_EXISTS = path.exists(".env")
 
 
 class Settings(BaseSettings):
     class Config:
-        env_file = ".env" if DOTENV_EXISTS else None
+        env_file = ".env" if path.exists(".env") else None
 
-    postgres_dsn: Optional[PostgresDsn] = None
-    sqlite_dsn: Optional[AsyncSqliteDsn] = None
+    database_url: PostgresDsn
+    jwt_token: str
 
-    @cached_property
-    def database_url(self) -> str:
-        if self.postgres_dsn:
-            return self.postgres_dsn.unicode_string()
-        elif self.sqlite_dsn:
-            return self.sqlite_dsn.unicode_string()
+    admin_credentials: Optional[str] = None
 
-        raise RuntimeError("no database url given")
-
-    @field_validator("postgres_dsn", mode="after")
+    @field_validator("database_url", mode="after")
     @classmethod
-    def validate_database_url(cls, value: Optional[PostgresDsn]):
+    def validate_database_url(cls, value: PostgresDsn):
         if value and value.scheme != "postgresql+asyncpg":
             raise ValueError("currently only the 'asyncpg' driver is supported")
         return value
 
-    @model_validator(mode="after")
-    def verify_database_urls(self):
-        if not (self.postgres_dsn or self.sqlite_dsn):
-            raise RuntimeError("no database url given")
-        return self
+    @field_validator("admin_credentials", mode="after")
+    @classmethod
+    def validate_admin_credentials(cls, value: Optional[str]):
+        if value is None:
+            return value
+
+        username, password = value.split(",")
+        assert len(username) > 0
+        assert len(password) > 0
+
+        return value
+
+    def unwrap_admin_credentials(self) -> tuple[str, str]:
+        if self.admin_credentials is None:
+            raise ValueError("admin credentials are missing")
+        username, password = self.admin_credentials.split(",")
+        return (username, password)
 
 
 settings = Settings()  # type: ignore
