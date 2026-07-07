@@ -1,6 +1,6 @@
-from typing import Annotated
+from typing import Annotated, Optional
 
-from fastapi import Depends
+from fastapi import Depends, Query
 from fastapi.routing import APIRouter
 from fastapi.security.oauth2 import OAuth2PasswordRequestFormStrict
 
@@ -36,3 +36,18 @@ async def login(
 @router.get("/me", responses=responses(AuthorizationError), status_code=200)
 async def get_self(user: CurrentUser) -> User:
     return User.model_validate(user)
+
+
+@router.delete(
+    "/me",
+    responses=responses(AuthorizationError, ConflictError),
+    status_code=204,
+)
+async def delete_self(
+    me: CurrentUser,
+    session: SessionDep,
+    hard: Optional[bool] = Query(
+        None, description="If true delete the user permanently"
+    ),
+) -> None:
+    await user.delete_user(session, me, bool(hard))

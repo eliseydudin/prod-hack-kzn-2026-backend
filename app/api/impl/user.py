@@ -60,4 +60,20 @@ async def login_user(session: Session, username: str, password: str):
         raise NotFoundError
 
     except NotFoundError:
-        raise AuthorizationError()
+        raise AuthorizationError
+
+
+async def delete_user(session: Session, user: UserTable, hard: bool = False):
+    if user.role == UserRole.ADMIN:
+        raise ConflictError(
+            message="Can't delete this user, because they are an admin",
+            detail={"username": user.username, "sub": user.id},
+        )
+
+    if not hard:
+        user.enabled = False
+        session.add(user)
+    else:
+        await session.delete(user)
+
+    await session.commit()

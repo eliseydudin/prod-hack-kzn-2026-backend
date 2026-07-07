@@ -1,8 +1,11 @@
 from typing import Any, Optional, TypeVar
 
 from sqlalchemy import ScalarResult
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.selectable import TypedReturnsRows
+
+from app.responses.exceptions import NotFoundError
 
 _T = TypeVar("_T", bound=Any)
 
@@ -19,4 +22,7 @@ class Session(AsyncSession):
         return (await self.exec(statement)).one_or_none()  # type: ignore
 
     async def exec_get_one(self, statement: TypedReturnsRows[tuple[_T]]) -> _T:
-        return (await self.exec(statement)).one()  # type: ignore
+        try:
+            return (await self.exec(statement)).one()  # type: ignore
+        except NoResultFound:
+            raise NotFoundError
