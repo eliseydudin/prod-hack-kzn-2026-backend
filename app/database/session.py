@@ -1,5 +1,6 @@
 from typing import Any, Optional, TypeVar
 
+import sqlmodel.ext.asyncio.session
 from sqlalchemy import ScalarResult
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,7 +12,7 @@ _T = TypeVar("_T", bound=Any)
 
 
 class Session(AsyncSession):
-    async def exec(self, statement: TypedReturnsRows[_T]) -> ScalarResult[_T]:
+    async def exec(self, statement: TypedReturnsRows[tuple[_T]]) -> ScalarResult[_T]:
         result = await self.execute(statement)
         return result.scalars()
 

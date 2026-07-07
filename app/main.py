@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from starlette.responses import JSONResponse
 
 from app.api.impl.user import create_admin_user
-from app.api.routers import auth_router
+from app.api.routers import admin_router, auth_router
 from app.database import get_session, setup_tables
 from app.models.status import Status
 from app.responses import HTTPException, responses
@@ -22,6 +22,7 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(auth_router)
+app.include_router(admin_router)
 
 
 @app.exception_handler(HTTPException)

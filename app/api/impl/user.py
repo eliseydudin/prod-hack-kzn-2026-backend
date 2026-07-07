@@ -31,14 +31,14 @@ async def create_admin_user(session: Session):
         return
 
     username, password = settings.unwrap_admin_credentials()
-    query = select(UserTable).where(UserTable.role == UserRole.ADMIN)
+    query = select(UserTable).where(UserTable.username == username)
 
     if admin := await session.exec_get_one_or_none(query):
-        if admin.username == username:
-            return
-
-        admin.role = UserRole.USER
+        admin.role = UserRole.ADMIN
+        admin.password = hash_password(password)
         session.add(admin)
+        await session.commit()
+        return
 
     request = CreateUserRequest(
         username=username,

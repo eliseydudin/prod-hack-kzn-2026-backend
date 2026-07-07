@@ -9,8 +9,8 @@ from app.database.connection import SessionDep
 from app.database.session import Session
 from app.models.auth import AuthToken, RefreshToken
 from app.models.base import Base
-from app.models.user import UserTable
-from app.responses.exceptions import AuthorizationError, NotFoundError
+from app.models.user import UserRole, UserTable
+from app.responses.exceptions import AuthorizationError, ForbiddenError, NotFoundError
 from app.settings import settings
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
@@ -55,4 +55,13 @@ async def get_current_user(session: SessionDep, token: str = Depends(oauth2_sche
     return await get_user_by_token(session, token)
 
 
+async def get_current_admin(session: SessionDep, token: str = Depends(oauth2_scheme)):
+    user = await get_user_by_token(session, token)
+    if user.role != UserRole.ADMIN:
+        raise ForbiddenError
+
+    return user
+
+
 CurrentUser = Annotated[UserTable, Depends(get_current_user)]
+CurrentAdmin = Annotated[UserTable, Depends(get_current_admin)]
