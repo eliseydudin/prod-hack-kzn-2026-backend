@@ -1,7 +1,7 @@
 from os import path
 from typing import Optional
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_extra_types.dsn import PostgresDsn
 from pydantic_settings import BaseSettings
 
@@ -15,6 +15,10 @@ class Settings(BaseSettings):
 
     admin_credentials: Optional[str] = None
     base_domain: Optional[str] = None
+
+    google_client_id: str
+    google_client_secret: str
+    google_callback_url: str
 
     @field_validator("database_url", mode="after")
     @classmethod
