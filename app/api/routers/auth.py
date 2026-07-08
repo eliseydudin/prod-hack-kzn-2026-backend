@@ -1,16 +1,19 @@
 from typing import Annotated, Optional
 
-from fastapi import Depends, Query
+from fastapi import Depends, Query, Request
+from fastapi.responses import RedirectResponse
 from fastapi.routing import APIRouter
 from fastapi.security.oauth2 import OAuth2PasswordRequestFormStrict
 
 from app.api.auth import CurrentUser, encode_token
+from app.api.google import profile as google
 from app.api.impl import user
 from app.database import SessionDep
 from app.models.auth import AuthToken, AuthTokenResponse
 from app.models.user import CreateUserRequest, RegisterUserRequest, User
 from app.responses import ConflictError, responses
 from app.responses.exceptions import AuthorizationError
+from app.settings import settings
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -51,3 +54,23 @@ async def delete_self(
     ),
 ) -> None:
     await user.delete_user(session, me, bool(hard))
+
+
+google_router = APIRouter(prefix="/google", tags=["google"], include_in_schema=False)
+
+
+@google_router.get("/", status_code=307, tags=["google"])
+async def google_auth(request: Request):
+    redirect_url = await google.google_api.get_authorization_url(
+        settings.google_callback_url
+    )
+    return RedirectResponse(redirect_url)
+
+
+@google_router.get("/callback", status_code=200, tags=["google"])
+async def google_auth_callback(profile: google.GoogleProfileDep) -> dict:
+    # TODO actually implement login here
+    return {"email": profile.email, "verified": profile.email_verified}
+
+
+router.include_router(google_router)
