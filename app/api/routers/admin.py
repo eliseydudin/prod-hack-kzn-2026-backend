@@ -4,8 +4,7 @@ from app.api.auth import CurrentAdmin
 from app.api.impl import user
 from app.api.impl.admin import list_users
 from app.database.connection import SessionDep
-from app.models.response import PaginationResult
-from app.models.user import CreateUserRequest, User
+from app.models.user import CreateUserRequest, User, UserPaginationResult
 from app.responses import responses
 from app.responses.exceptions import AuthorizationError, ConflictError, ForbiddenError
 
@@ -40,5 +39,5 @@ async def list_all_users(
     page: int = Query(0, ge=0),
     size: int = Query(20, gt=0),
     filter_enabled: bool = Query(False),
-) -> PaginationResult[User]:
+) -> UserPaginationResult:
     return await list_users(session, page, size, filter_enabled)

@@ -1,8 +1,7 @@
-from sqlmodel import select
+from sqlmodel import col, select
 
 from app.database import SessionDep
-from app.models.response import PaginationResult
-from app.models.user import User, UserTable
+from app.models.user import User, UserPaginationResult, UserTable
 
 
 async def list_users(
@@ -10,10 +9,15 @@ async def list_users(
     page: int,
     size: int,
     filter_enabled: bool,
-) -> PaginationResult[User]:
-    query = select(UserTable).limit(size).offset(page * size)
+) -> UserPaginationResult:
+    query = (
+        select(UserTable)
+        .limit(size)
+        .offset(page * size)
+        .order_by(col(UserTable.updated_at).desc())
+    )
     if filter_enabled:
         query = query.where(UserTable.enabled)
     result = [User.model_validate(ut) for ut in (await session.exec(query)).all()]
 
-    return PaginationResult(items=result, amount=len(result), size=size, page=page)
+    return UserPaginationResult(items=result, amount=len(result), size=size, page=page)

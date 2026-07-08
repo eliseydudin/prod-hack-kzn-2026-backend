@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     jwt_token: str
 
     admin_credentials: Optional[str] = None
+    base_domain: Optional[str] = None
 
     @field_validator("database_url", mode="after")
     @classmethod

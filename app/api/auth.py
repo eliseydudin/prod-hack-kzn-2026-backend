@@ -14,6 +14,9 @@ from app.responses.exceptions import AuthorizationError, ForbiddenError, NotFoun
 from app.settings import settings
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+oauth2_scheme.make_not_authenticated_error = lambda: AuthorizationError(
+    message="Not authenticated"
+)  # type: ignore
 
 
 def encode_token(token: Union[RefreshToken, AuthToken]) -> str:

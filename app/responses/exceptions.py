@@ -21,7 +21,7 @@ class HTTPException(Exception):
             self.message = type(self).default_message
 
     def dump_python(self) -> Any:
-        return TypeAdapter(type(self)).dump_python(self, mode="json")
+        return TypeAdapter(type(self)).dump_python(self, mode="json", by_alias=True)
 
 
 @dataclass

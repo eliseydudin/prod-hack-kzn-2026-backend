@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 
 from app.api.impl.user import create_admin_user
@@ -8,14 +9,14 @@ from app.api.routers import admin_router, auth_router
 from app.database import get_session, setup_tables
 from app.models.status import Status
 from app.responses import HTTPException, responses
+from app.settings import settings
+from app.utils.iter import async_foreach
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     await setup_tables()
-
-    async for session in get_session():
-        await create_admin_user(session)
+    await async_foreach(get_session(), create_admin_user)
 
     yield
 
@@ -23,6 +24,21 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 app.include_router(auth_router)
 app.include_router(admin_router)
+
+ALLOWED_ORIGINS = ["http://localhost:3000", "http://localhost:8000"]
+if domain := settings.base_domain:
+    ALLOWED_ORIGINS += [
+        f"http://{domain}",
+        f"https://{domain}",
+    ]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_methods=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_headers=["*"],
+    allow_credentials=True,
+)
 
 
 @app.exception_handler(HTTPException)

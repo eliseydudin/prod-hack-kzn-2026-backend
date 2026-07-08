@@ -1,4 +1,4 @@
-from typing import Iterable, TypeVar
+from typing import AsyncIterable, Awaitable, Callable, Iterable, TypeVar
 
 _T = TypeVar("_T")
 
@@ -24,3 +24,8 @@ def extend_with(iter: Iterable[_T], *values: _T) -> Iterable[_T]:
 
     yield from iter
     yield from values
+
+
+async def async_foreach(iter: AsyncIterable[_T], func: Callable[[_T], Awaitable[None]]):
+    async for elem in iter:
+        await func(elem)

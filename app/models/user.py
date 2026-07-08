@@ -97,3 +97,10 @@ class RegisterUserRequest(UserBase):
 
 class CreateUserRequest(RegisterUserRequest):
     role: UserRole = UserRole.USER
+
+
+class UserPaginationResult(Base):
+    items: list[User]
+    size: int
+    page: int
+    amount: int
