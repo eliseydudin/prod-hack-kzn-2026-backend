@@ -1,6 +1,9 @@
+import secrets
+
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 
+from app.api.google.models import GoogleProfile
 from app.database.session import Session
 from app.models.user import CreateUserRequest, UserRole, UserTable
 from app.responses.exceptions import (
@@ -77,3 +80,34 @@ async def delete_user(session: Session, user: UserTable, hard: bool = False):
         await session.delete(user)
 
     await session.commit()
+
+
+async def create_user_from_google_profile(session: Session, profile: GoogleProfile):
+    new_username = profile.email.split("@")[0] + "." + secrets.token_hex(4)
+    user = UserTable(
+        username=new_username,
+        password=None,
+        identity={
+            "source": "google",
+            "identifier": profile.email,
+        },
+    )
+
+    session.add(user)
+    await session.commit()
+    await session.refresh(user)
+    return user
+
+
+async def get_user_from_google_profile(session: Session, profile: GoogleProfile):
+    """
+    If an account created via this profile already exists, return it. Otherwise create a new account.
+    """
+    query = select(UserTable).where(
+        UserTable.identity == {"source": "google", "identifier": profile.email},
+    )
+
+    if user := await session.exec_get_one_or_none(query):
+        return user
+
+    return await create_user_from_google_profile(session, profile)

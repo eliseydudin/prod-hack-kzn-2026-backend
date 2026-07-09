@@ -1,8 +1,9 @@
 from enum import StrEnum, auto
-from typing import Optional
+from typing import Literal, Optional, TypedDict
 
 from pydantic import field_validator
-from sqlmodel import Field
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlmodel import Column, Field
 
 from app.models.base import (
     Base,
@@ -44,17 +45,17 @@ class UserBase(Base):
     @classmethod
     def validate_username(cls, username: str):
         if username[0].isdigit():
-            raise ValueError("usernames can't start with a digit")
+            raise ValueError("Usernames can't start with a digit")
 
         for special_symbol in [".", "_"]:
             if username[0] == special_symbol:
                 raise ValueError(
-                    f"username can't start with the special symbol '{special_symbol}'"
+                    f"Username can't start with the special symbol '{special_symbol}'"
                 )
 
             if username[-1] == special_symbol:
                 raise ValueError(
-                    f"username can't end with the special symbol '{special_symbol}'"
+                    f"Username can't end with the special symbol '{special_symbol}'"
                 )
 
             if (special_symbol * 2) in username:
@@ -74,9 +75,21 @@ class UserExtraBase(UserBase, UUIDBase):
     updated_at: Timestamp = UpdatedAt()
 
 
+class UserIdentity(TypedDict):
+    source: Optional[Literal["google"]]
+    identifier: Optional[str]
+
+
 class UserTable(UserExtraBase, PrimaryKeyBase, table=True):
     password: Optional[str]
     enabled: bool = True
+    identity: UserIdentity = Field(
+        sa_column=Column(JSONB()),
+        default_factory=lambda: {
+            "source": None,
+            "identifier": None,
+        },
+    )
 
 
 class User(UserExtraBase):

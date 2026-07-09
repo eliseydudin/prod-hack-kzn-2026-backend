@@ -68,9 +68,12 @@ async def google_auth(request: Request):
 
 
 @google_router.get("/callback", status_code=200, tags=["google"])
-async def google_auth_callback(profile: google.GoogleProfileDep) -> dict:
-    # TODO actually implement login here
-    return {"email": profile.email, "verified": profile.email_verified}
+async def google_auth_callback(
+    session: SessionDep,
+    profile: google.GoogleProfileDep,
+) -> User:
+    new_user = await user.get_user_from_google_profile(session, profile)
+    return User.model_validate(new_user)
 
 
 router.include_router(google_router)
