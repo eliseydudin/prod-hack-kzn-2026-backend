@@ -66,10 +66,10 @@ async def get_current_user(session: SessionDep, auth_token: CurrentUserPayload):
 CurrentUser = Annotated[UserTable, Depends(get_current_user)]
 
 
-async def get_current_admin(user: CurrentUser):
-    if user.role != UserRole.ADMIN:
+async def get_current_admin(session: SessionDep, auth_token: CurrentUserPayload):
+    if auth_token.role != UserRole.ADMIN:
         raise ForbiddenError
-    return user
+    return await get_current_user(session, auth_token)
 
 
 CurrentAdmin = Annotated[UserTable, Depends(get_current_admin)]
