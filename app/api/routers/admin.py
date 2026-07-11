@@ -1,12 +1,16 @@
+from logging import getLogger
+
 from fastapi import APIRouter, Query
 
-from app.api.auth import CurrentAdmin
+from app.api.auth import CurrentAdmin, CurrentAdminPayload
 from app.api.impl import user
 from app.api.impl.admin import list_users
 from app.database.connection import SessionDep
 from app.models.user import CreateUserRequest, User, UserPaginationResult
 from app.responses import responses
 from app.responses.exceptions import AuthorizationError, ConflictError, ForbiddenError
+
+logger = getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -21,11 +25,19 @@ router = APIRouter(prefix="/admin", tags=["admin"])
     status_code=201,
 )
 async def create_user(
-    _admin: CurrentAdmin,
+    admin: CurrentAdmin,
     session: SessionDep,
     create_req: CreateUserRequest,
 ) -> User:
-    return User.model_validate(await user.create_user(session, create_req))
+    new_user = User.model_validate(await user.create_user(session, create_req))
+    logger.info(
+        "Created a new user @%s (%s) by admin @%s (%s)",
+        new_user.username,
+        new_user.id,
+        admin.username,
+        admin.id,
+    )
+    return new_user
 
 
 @router.get(
@@ -34,7 +46,7 @@ async def create_user(
     status_code=200,
 )
 async def list_all_users(
-    _admin: CurrentAdmin,
+    _admin: CurrentAdminPayload,
     session: SessionDep,
     page: int = Query(0, ge=0),
     size: int = Query(20, gt=0),

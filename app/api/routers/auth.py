@@ -1,3 +1,4 @@
+from logging import getLogger
 from typing import Annotated, Optional
 
 from fastapi import Depends, Query
@@ -16,11 +17,17 @@ from app.responses.exceptions import AuthorizationError
 from app.settings import settings
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+logger = getLogger(__name__)
 
 
 @router.post("/register", responses=responses(ConflictError), status_code=201)
 async def register(session: SessionDep, req: RegisterUserRequest) -> User:
     user_table = await user.create_user(session, CreateUserRequest.model_validate(req))
+    logger.info(
+        "User @%s (%s) registered their account",
+        user_table.username,
+        user_table.id,
+    )
     return User.model_validate(user_table)
 
 
@@ -54,6 +61,12 @@ async def delete_self(
     ),
 ) -> None:
     await user.delete_user(session, me, bool(hard))
+    logger.info(
+        "User @%s (%s) just deleted their account (permanently=%s)",
+        me.username,
+        me.id,
+        "true" if hard else "false",
+    )
 
 
 google_router = APIRouter(prefix="/google", tags=["google"], include_in_schema=False)
@@ -72,7 +85,15 @@ async def google_auth_callback(
     session: SessionDep,
     profile: google.GoogleProfileDep,
 ) -> User:
-    new_user = await user.get_user_from_google_profile(session, profile)
+    created, new_user = await user.get_user_from_google_profile(session, profile)
+    if created:
+        logger.info(
+            "Created a new account @%s (%s) by using Google's social login (%s)",
+            new_user.username,
+            new_user.id,
+            profile.email,
+        )
+
     return User.model_validate(new_user)
 
 

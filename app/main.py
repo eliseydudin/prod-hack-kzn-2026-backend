@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from logging import getLogger
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,12 +12,18 @@ from app.models.status import Status
 from app.responses import HTTPException, responses
 from app.settings import settings
 from app.utils.iter import async_foreach
+from app.utils.logger import setup_logger
+
+logger = getLogger("app")
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     await setup_tables()
     await async_foreach(get_session(), create_admin_user)
+    setup_logger(logger)
+
+    logger.info("Setup complete")
 
     yield
 

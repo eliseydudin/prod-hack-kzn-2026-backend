@@ -108,9 +108,13 @@ async def create_user_from_google_profile(session: Session, profile: GoogleProfi
     return user
 
 
-async def get_user_from_google_profile(session: Session, profile: GoogleProfile):
+async def get_user_from_google_profile(
+    session: Session,
+    profile: GoogleProfile,
+) -> tuple[bool, UserTable]:
     """
-    If an account created via this profile already exists, return it. Otherwise create a new account.
+    If an account associated with this profile already exists, return False and itself.
+    Otherwise return True and the newly created account.
     """
     query = (
         select(UserTable)
@@ -123,6 +127,6 @@ async def get_user_from_google_profile(session: Session, profile: GoogleProfile)
     )
 
     if user := await session.exec_get_one_or_none(query):
-        return user
+        return False, user
 
-    return await create_user_from_google_profile(session, profile)
+    return True, await create_user_from_google_profile(session, profile)
