@@ -5,7 +5,13 @@ from sqlmodel import select
 
 from app.api.google.models import GoogleProfile
 from app.database.session import Session
-from app.models.user import CreateUserRequest, UserRole, UserTable
+from app.models.user import (
+    CreateUserRequest,
+    UserIdentitySource,
+    UserIdentityTable,
+    UserRole,
+    UserTable,
+)
 from app.responses.exceptions import (
     AuthorizationError,
     ConflictError,
@@ -84,15 +90,18 @@ async def delete_user(session: Session, user: UserTable, hard: bool = False):
 
 async def create_user_from_google_profile(session: Session, profile: GoogleProfile):
     new_username = profile.email.split("@")[0] + "." + secrets.token_hex(4)
+
+    identity = UserIdentityTable(
+        source=UserIdentitySource.GOOGLE,
+        identifier=profile.email,
+    )
     user = UserTable(
         username=new_username,
         password=None,
-        identity={
-            "source": "google",
-            "identifier": profile.email,
-        },
+        identity=identity,
     )
 
+    session.add(identity)
     session.add(user)
     await session.commit()
     await session.refresh(user)
@@ -103,8 +112,14 @@ async def get_user_from_google_profile(session: Session, profile: GoogleProfile)
     """
     If an account created via this profile already exists, return it. Otherwise create a new account.
     """
-    query = select(UserTable).where(
-        UserTable.identity == {"source": "google", "identifier": profile.email},
+    query = (
+        select(UserTable)
+        .join(UserIdentityTable)
+        .where(
+            UserTable.identity is not None,
+            UserIdentityTable.source == UserIdentitySource.GOOGLE,  # type: ignore
+            UserIdentityTable.identifier == profile.email,  # type: ignore
+        )
     )
 
     if user := await session.exec_get_one_or_none(query):

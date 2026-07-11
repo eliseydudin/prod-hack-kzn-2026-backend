@@ -1,6 +1,6 @@
 from typing import Annotated, Optional
 
-from fastapi import Depends, Query, Request
+from fastapi import Depends, Query
 from fastapi.responses import RedirectResponse
 from fastapi.routing import APIRouter
 from fastapi.security.oauth2 import OAuth2PasswordRequestFormStrict
@@ -59,15 +59,15 @@ async def delete_self(
 google_router = APIRouter(prefix="/google", tags=["google"], include_in_schema=False)
 
 
-@google_router.get("/", status_code=307, tags=["google"])
-async def google_auth(request: Request):
+@google_router.get("/", status_code=307)
+async def google_auth():
     redirect_url = await google.google_api.get_authorization_url(
         settings.google_callback_url
     )
     return RedirectResponse(redirect_url)
 
 
-@google_router.get("/callback", status_code=200, tags=["google"])
+@google_router.get("/callback", status_code=200)
 async def google_auth_callback(
     session: SessionDep,
     profile: google.GoogleProfileDep,

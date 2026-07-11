@@ -38,6 +38,6 @@ async def list_all_users(
     session: SessionDep,
     page: int = Query(0, ge=0),
     size: int = Query(20, gt=0),
-    filter_enabled: bool = Query(False),
+    filter_enabled: bool = Query(False, alias="filterEnabled"),
 ) -> UserPaginationResult:
     return await list_users(session, page, size, filter_enabled)

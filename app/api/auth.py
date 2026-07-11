@@ -3,10 +3,10 @@ from typing import Annotated, TypeVar, Union
 import jwt
 from fastapi import Depends
 from fastapi.security.oauth2 import OAuth2PasswordBearer
+from pydantic import ValidationError
 from sqlmodel import select
 
 from app.database.connection import SessionDep
-from app.database.session import Session
 from app.models.auth import AuthToken, RefreshToken
 from app.models.base import Base
 from app.models.user import UserRole, UserTable
@@ -40,9 +40,18 @@ def decode_token(token: str, model_type: type[_Model]) -> _Model:
     )
 
 
-async def get_user_by_token(session: Session, token: str):
+async def get_current_user_payload(token: str = Depends(oauth2_scheme)):
     try:
-        auth_token = decode_token(token, AuthToken)
+        return decode_token(token, AuthToken)
+    except ValidationError, jwt.PyJWTError:
+        raise AuthorizationError()
+
+
+CurrentUserPayload = Annotated[AuthToken, Depends(get_current_user_payload)]
+
+
+async def get_current_user(session: SessionDep, auth_token: CurrentUserPayload):
+    try:
         query = select(UserTable).where(UserTable.id == auth_token.sub)
         user = await session.exec_get_one(query)
 
@@ -54,17 +63,13 @@ async def get_user_by_token(session: Session, token: str):
         raise AuthorizationError
 
 
-async def get_current_user(session: SessionDep, token: str = Depends(oauth2_scheme)):
-    return await get_user_by_token(session, token)
+CurrentUser = Annotated[UserTable, Depends(get_current_user)]
 
 
-async def get_current_admin(session: SessionDep, token: str = Depends(oauth2_scheme)):
-    user = await get_user_by_token(session, token)
+async def get_current_admin(user: CurrentUser):
     if user.role != UserRole.ADMIN:
         raise ForbiddenError
-
     return user
 
 
-CurrentUser = Annotated[UserTable, Depends(get_current_user)]
 CurrentAdmin = Annotated[UserTable, Depends(get_current_admin)]

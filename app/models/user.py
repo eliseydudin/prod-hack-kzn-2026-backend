@@ -1,9 +1,8 @@
 from enum import StrEnum, auto
-from typing import Literal, Optional, TypedDict
+from typing import Optional
 
 from pydantic import field_validator
-from sqlalchemy.dialects.postgresql import JSONB
-from sqlmodel import Column, Field
+from sqlmodel import Field, Relationship
 
 from app.models.base import (
     Base,
@@ -60,7 +59,7 @@ class UserBase(Base):
 
             if (special_symbol * 2) in username:
                 raise ValueError(
-                    f"can't have 2 special symbols '{special_symbol}' next to eachother"
+                    f"Can't have 2 special symbols '{special_symbol}' next to eachother"
                 )
 
         return username
@@ -75,20 +74,29 @@ class UserExtraBase(UserBase, UUIDBase):
     updated_at: Timestamp = UpdatedAt()
 
 
-class UserIdentity(TypedDict):
-    source: Optional[Literal["google"]]
-    identifier: Optional[str]
+class UserIdentitySource(StrEnum):
+    GOOGLE = "google"
+
+
+class UserIdentity(Base):
+    source: UserIdentitySource
+    identifier: str
+
+
+class UserIdentityTable(UserIdentity, PrimaryKeyBase, table=True):
+    pass
 
 
 class UserTable(UserExtraBase, PrimaryKeyBase, table=True):
     password: Optional[str]
     enabled: bool = True
-    identity: UserIdentity = Field(
-        sa_column=Column(JSONB()),
-        default_factory=lambda: {
-            "source": None,
-            "identifier": None,
-        },
+
+    identity_id: Optional[int] = Field(
+        default=None,
+        foreign_key="useridentity.primary_key",
+    )
+    identity: Optional[UserIdentityTable] = Relationship(
+        sa_relationship_kwargs={"lazy": "selectin"}
     )
 
 
