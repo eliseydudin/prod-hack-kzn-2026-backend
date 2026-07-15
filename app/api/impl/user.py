@@ -113,6 +113,7 @@ async def delete_user(session: Session, user: UserTable, hard: bool = False):
 
 async def create_user_from_google_profile(session: Session, profile: GoogleProfile):
     new_username = profile.email.split("@")[0] + "." + secrets.token_hex(4)
+    new_username = new_username[:32]
 
     identity = UserIdentityTable(
         source=UserIdentitySource.GOOGLE,
