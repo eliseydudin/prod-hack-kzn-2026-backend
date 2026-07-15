@@ -1,5 +1,6 @@
 from enum import StrEnum, auto
 from typing import Optional
+from uuid import UUID
 
 from pydantic import field_validator
 from sqlmodel import Field, Relationship
@@ -125,3 +126,7 @@ class UserPaginationResult(Base):
     size: int
     page: int
     amount: int
+
+
+class UserMeta(Base):
+    refresh_token_user_id: UUID

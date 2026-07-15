@@ -1,17 +1,17 @@
 from logging import getLogger
 from typing import Annotated, Optional
 
-from fastapi import Depends, Query
+from fastapi import Depends, Query, Response
 from fastapi.responses import RedirectResponse
 from fastapi.routing import APIRouter
 from fastapi.security.oauth2 import OAuth2PasswordRequestFormStrict
 
-from app.api.auth import CurrentUser, encode_token
+from app.api.auth import CurrentUser, RefreshTokenDep, encode_token, send_refresh_token
 from app.api.google import profile as google
 from app.api.impl import user
 from app.database import SessionDep
 from app.models.auth import AuthToken, AuthTokenResponse
-from app.models.user import CreateUserRequest, RegisterUserRequest, User
+from app.models.user import CreateUserRequest, RegisterUserRequest, User, UserMeta
 from app.responses import ConflictError, responses
 from app.responses.exceptions import AuthorizationError
 from app.settings import settings
@@ -35,12 +35,33 @@ async def register(session: SessionDep, req: RegisterUserRequest) -> User:
 async def login(
     session: SessionDep,
     credentials: Annotated[OAuth2PasswordRequestFormStrict, Depends()],
+    response: Response,
 ) -> AuthTokenResponse:
     user_table = await user.login_user(
-        session, credentials.username, credentials.password
+        session,
+        credentials.username,
+        credentials.password,
     )
     auth_token = AuthToken(sub=user_table.id, role=user_table.role)
+    send_refresh_token(user_table, response)
     return AuthTokenResponse(access_token=encode_token(auth_token))
+
+
+@router.post("/refresh", status_code=200, responses=responses(AuthorizationError))
+async def refresh_token(
+    session: SessionDep,
+    refresh_token: RefreshTokenDep,
+) -> AuthTokenResponse:
+    user_table = await user.get_user_by_id(session, refresh_token.sub)
+    auth_token = AuthToken(sub=user_table.id, role=user_table.role)
+    return AuthTokenResponse(access_token=encode_token(auth_token))
+
+
+@router.get("/meta", responses=responses(AuthorizationError), status_code=200)
+async def who_am_i(
+    refresh_token: RefreshTokenDep,
+) -> UserMeta:
+    return UserMeta(refresh_token_user_id=refresh_token.sub)
 
 
 @router.get("/me", responses=responses(AuthorizationError), status_code=200)
@@ -82,8 +103,7 @@ async def google_auth():
 
 @google_router.get("/callback", status_code=200)
 async def google_auth_callback(
-    session: SessionDep,
-    profile: google.GoogleProfileDep,
+    session: SessionDep, profile: google.GoogleProfileDep, response: Response
 ) -> User:
     created, new_user = await user.get_user_from_google_profile(session, profile)
     if created:
@@ -94,6 +114,7 @@ async def google_auth_callback(
             profile.email,
         )
 
+    send_refresh_token(new_user, response)
     return User.model_validate(new_user)
 
 

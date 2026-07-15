@@ -1,4 +1,5 @@
 import secrets
+from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
@@ -130,3 +131,8 @@ async def get_user_from_google_profile(
         return False, user
 
     return True, await create_user_from_google_profile(session, profile)
+
+
+async def get_user_by_id(session: Session, id: UUID):
+    query = select(UserTable).where(UserTable.id == id)
+    return await session.exec_get_one(query)

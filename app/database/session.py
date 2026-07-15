@@ -1,6 +1,5 @@
 from typing import Any, Optional, TypeVar
 
-import sqlmodel.ext.asyncio.session
 from sqlalchemy import ScalarResult
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.ext.asyncio import AsyncSession
