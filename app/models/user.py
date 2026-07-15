@@ -11,6 +11,7 @@ from app.models.base import (
     UUIDBase,
 )
 from app.models.types.extra import Extra
+from app.models.types.missing import MaybeMissing
 from app.models.types.time import CreatedAt, Timestamp, UpdatedAt
 
 USERNAME_REGEX = r"^[a-zA-Z0-9._]*$"
@@ -119,6 +120,18 @@ class RegisterUserRequest(UserBase):
 
 class CreateUserRequest(RegisterUserRequest):
     role: UserRole = UserRole.USER
+
+
+class EditUserRequest(Base):
+    username: MaybeMissing[str] = Field(
+        min_length=1,
+        max_length=32,
+        regex=USERNAME_REGEX,
+        schema_extra=Extra(
+            examples=USERNAME_EXAMPLES,
+            pattern=USERNAME_REGEX,
+        ),
+    )
 
 
 class UserPaginationResult(Base):

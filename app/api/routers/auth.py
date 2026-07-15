@@ -6,12 +6,25 @@ from fastapi.responses import RedirectResponse
 from fastapi.routing import APIRouter
 from fastapi.security.oauth2 import OAuth2PasswordRequestFormStrict
 
-from app.api.auth import CurrentUser, RefreshTokenDep, encode_token, send_refresh_token
+from app.api.auth import (
+    CurrentUser,
+    CurrentUserPayload,
+    RefreshTokenDep,
+    delete_refresh_token,
+    encode_token,
+    send_refresh_token,
+)
 from app.api.google import profile as google
 from app.api.impl import user
 from app.database import SessionDep
 from app.models.auth import AuthToken, AuthTokenResponse
-from app.models.user import CreateUserRequest, RegisterUserRequest, User, UserMeta
+from app.models.user import (
+    CreateUserRequest,
+    EditUserRequest,
+    RegisterUserRequest,
+    User,
+    UserMeta,
+)
 from app.responses import ConflictError, responses
 from app.responses.exceptions import AuthorizationError
 from app.settings import settings
@@ -57,7 +70,25 @@ async def refresh_token(
     return AuthTokenResponse(access_token=encode_token(auth_token))
 
 
-@router.get("/meta", responses=responses(AuthorizationError), status_code=200)
+@router.post(
+    "/logout",
+    status_code=204,
+    responses=responses(AuthorizationError),
+    description="Deletes the refresh token",
+)
+async def logout(
+    _user: CurrentUserPayload,
+    response: Response,
+):
+    delete_refresh_token(response)
+
+
+@router.get(
+    "/meta",
+    responses=responses(AuthorizationError),
+    status_code=200,
+    include_in_schema=False,
+)
 async def who_am_i(
     refresh_token: RefreshTokenDep,
 ) -> UserMeta:
@@ -67,6 +98,27 @@ async def who_am_i(
 @router.get("/me", responses=responses(AuthorizationError), status_code=200)
 async def get_self(user: CurrentUser) -> User:
     return User.model_validate(user)
+
+
+@router.put(
+    "/me",
+    responses=responses(AuthorizationError, ConflictError),
+    status_code=200,
+)
+async def update_self(
+    me: CurrentUser,
+    session: SessionDep,
+    request: EditUserRequest,
+) -> User:
+    old_username = me.username
+    updated = await user.edit_user(session, me, request)
+    logger.info(
+        "User <%s> updated their username: %r -> %r",
+        updated.id,
+        old_username,
+        updated.username,
+    )
+    return User.model_validate(updated)
 
 
 @router.delete(
@@ -103,7 +155,9 @@ async def google_auth():
 
 @google_router.get("/callback", status_code=200)
 async def google_auth_callback(
-    session: SessionDep, profile: google.GoogleProfileDep, response: Response
+    session: SessionDep,
+    profile: google.GoogleProfileDep,
+    response: Response,
 ) -> User:
     created, new_user = await user.get_user_from_google_profile(session, profile)
     if created:

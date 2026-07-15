@@ -39,7 +39,7 @@ def UpdatedAt(*, exclude: bool = False):
         sa_column=Column(
             TIMESTAMP(timezone=True),
             server_default=func.current_timestamp(),
-            server_onupdate=func.current_timestamp(),
+            onupdate=func.current_timestamp(),
         ),
         exclude=exclude,
     )

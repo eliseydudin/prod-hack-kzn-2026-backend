@@ -6,8 +6,10 @@ from sqlmodel import select
 
 from app.api.google.models import GoogleProfile
 from app.database.session import Session
+from app.models.types.missing import is_missing
 from app.models.user import (
     CreateUserRequest,
+    EditUserRequest,
     UserIdentitySource,
     UserIdentityTable,
     UserRole,
@@ -71,6 +73,26 @@ async def login_user(session: Session, username: str, password: str):
 
     except NotFoundError:
         raise AuthorizationError
+
+
+async def edit_user(session: Session, user: UserTable, request: EditUserRequest):
+    updated_fields = set[str]()
+
+    if not is_missing(request.username):
+        user.username = request.username
+        updated_fields.add("username")
+
+    try:
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+
+        return user
+    except IntegrityError:
+        raise ConflictError(
+            message="Conflict in updating the user's fields",
+            detail={"conflicted": list(updated_fields)},
+        )
 
 
 async def delete_user(session: Session, user: UserTable, hard: bool = False):
