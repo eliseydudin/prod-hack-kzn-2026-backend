@@ -4,21 +4,16 @@ from pydantic import Field, TypeAdapter
 from pydantic.alias_generators import to_camel
 from pydantic.dataclasses import dataclass
 
-from app.models.types.time import IntTimestampMs, utc_now
+from app.models.types.time import CreatedAt, IntTimestampMs
 
 
 @dataclass(kw_only=True, config={"alias_generator": to_camel})
 class HTTPException(Exception):
     status_code: ClassVar[int] = 400
-    default_message: ClassVar[str] = "An error has occured"
 
-    detail: dict[str, Any] = Field(default_factory=dict)
-    message: str = default_message
-    occured_at: IntTimestampMs = Field(default_factory=utc_now)
-
-    def __post_init__(self):
-        if self.message == HTTPException.default_message:
-            self.message = type(self).default_message
+    detail: dict[str, Any] = Field(default_factory=dict, examples=[{}])
+    message: str = "An error has occured"
+    occured_at: IntTimestampMs = CreatedAt()
 
     def dump_python(self) -> Any:
         return TypeAdapter(type(self)).dump_python(self, mode="json", by_alias=True)
@@ -26,46 +21,46 @@ class HTTPException(Exception):
 
 @dataclass
 class BadRequestError(HTTPException):
-    default_message = "Bad request"
+    message: str = "Bad request"
 
 
 @dataclass
 class AuthorizationError(HTTPException):
     status_code = 401
-    default_message = "Unauthorized"
+    message: str = "Unauthorized"
 
 
 @dataclass
 class ForbiddenError(HTTPException):
     status_code = 403
-    default_message = "Forbidden"
+    message: str = "Forbidden"
 
 
 @dataclass
 class NotFoundError(HTTPException):
     status_code = 404
-    default_message = "Not found"
+    message: str = "Not found"
 
 
 @dataclass
 class ConflictError(HTTPException):
     status_code = 409
-    default_message = "Conflict"
+    message: str = "Conflict"
 
 
 @dataclass
 class GoneError(HTTPException):
     status_code = 410
-    default_message = "Gone"
+    message: str = "Gone"
 
 
 @dataclass
 class InternalServerError(HTTPException):
     status_code = 500
-    default_message = "Internal server error"
+    message: str = "Internal server error"
 
 
 @dataclass
 class ServiceUnavailableError(HTTPException):
     status_code = 503
-    default_message = "Service unavailable"
+    message: str = "Service unavailable"
