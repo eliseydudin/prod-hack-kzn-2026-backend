@@ -11,7 +11,7 @@ from app.models.base import (
 )
 from app.models.types.extra import Extra
 from app.models.types.missing import MaybeMissing
-from app.models.types.time import CreatedAt, Timestamp, UpdatedAt
+from app.models.types.time import CreatedAt, IntTimestampMs, UpdatedAt
 
 USERNAME_REGEX = r"^[a-zA-Z0-9._]*$"
 USERNAME_EXAMPLES = [
@@ -71,8 +71,8 @@ class UserExtraBase(UserBase, SnowflakeIdBase):
         default=UserRole.USER,
         exclude=True,
     )
-    created_at: Timestamp = CreatedAt()
-    updated_at: Timestamp = UpdatedAt()
+    created_at: IntTimestampMs = CreatedAt()
+    updated_at: IntTimestampMs = UpdatedAt()
 
 
 class UserIdentitySource(StrEnum):

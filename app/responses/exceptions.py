@@ -4,7 +4,7 @@ from pydantic import Field, TypeAdapter
 from pydantic.alias_generators import to_camel
 from pydantic.dataclasses import dataclass
 
-from app.models.types.time import Timestamp, utc_now
+from app.models.types.time import IntTimestampMs, utc_now
 
 
 @dataclass(kw_only=True, config={"alias_generator": to_camel})
@@ -14,7 +14,7 @@ class HTTPException(Exception):
 
     detail: dict[str, Any] = Field(default_factory=dict)
     message: str = default_message
-    occured_at: Timestamp = Field(default_factory=utc_now)
+    occured_at: IntTimestampMs = Field(default_factory=utc_now)
 
     def __post_init__(self):
         if self.message == HTTPException.default_message:

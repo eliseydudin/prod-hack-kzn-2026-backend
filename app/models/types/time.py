@@ -13,8 +13,16 @@ def datetime_to_int(dt: datetime) -> int:
     return int(dt.timestamp())
 
 
+def datetime_to_ms(dt: datetime) -> int:
+    if dt is None:
+        # used when fastapi is generating the OpenAPI doc
+        dt = datetime.now(UTC)
+    return int(dt.timestamp() * 1000.0)
+
+
 Timestamp = datetime
 IntTimestamp = Annotated[Timestamp, PlainSerializer(datetime_to_int)]
+IntTimestampMs = Annotated[Timestamp, PlainSerializer(datetime_to_ms)]
 
 
 def UtcDefault(*, delay: Optional[timedelta] = None):
