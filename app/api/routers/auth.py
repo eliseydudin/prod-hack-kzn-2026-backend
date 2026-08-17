@@ -23,7 +23,6 @@ from app.models.user import (
     EditUserRequest,
     RegisterUserRequest,
     User,
-    UserMeta,
 )
 from app.responses import ConflictError, responses
 from app.responses.exceptions import AuthorizationError
@@ -81,18 +80,6 @@ async def logout(
     response: Response,
 ):
     delete_refresh_token(response)
-
-
-@router.get(
-    "/meta",
-    responses=responses(AuthorizationError),
-    status_code=200,
-    include_in_schema=False,
-)
-async def who_am_i(
-    refresh_token: RefreshTokenDep,
-) -> UserMeta:
-    return UserMeta(refresh_token_user_id=refresh_token.sub)
 
 
 @router.get("/me", responses=responses(AuthorizationError), status_code=200)

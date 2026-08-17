@@ -1,6 +1,5 @@
 from enum import StrEnum, auto
 from typing import Optional
-from uuid import UUID
 
 from pydantic import field_validator
 from sqlmodel import Field, Relationship
@@ -8,7 +7,7 @@ from sqlmodel import Field, Relationship
 from app.models.base import (
     Base,
     PrimaryKeyBase,
-    UUIDBase,
+    SnowflakeIdBase,
 )
 from app.models.types.extra import Extra
 from app.models.types.missing import MaybeMissing
@@ -67,7 +66,7 @@ class UserBase(Base):
         return username
 
 
-class UserExtraBase(UserBase, UUIDBase):
+class UserExtraBase(UserBase, SnowflakeIdBase):
     role: UserRole = Field(
         default=UserRole.USER,
         exclude=True,
@@ -139,7 +138,3 @@ class UserPaginationResult(Base):
     size: int
     page: int
     amount: int
-
-
-class UserMeta(Base):
-    refresh_token_user_id: UUID

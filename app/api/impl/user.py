@@ -1,5 +1,4 @@
 import secrets
-from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
@@ -7,6 +6,7 @@ from sqlmodel import select
 from app.api.google.models import GoogleProfile
 from app.database.session import Session
 from app.models.types.missing import is_missing
+from app.models.types.snowflake_id import SnowflakeId
 from app.models.user import (
     CreateUserRequest,
     EditUserRequest,
@@ -156,6 +156,6 @@ async def get_user_from_google_profile(
     return True, await create_user_from_google_profile(session, profile)
 
 
-async def get_user_by_id(session: Session, id: UUID):
+async def get_user_by_id(session: Session, id: SnowflakeId):
     query = select(UserTable).where(UserTable.id == id)
     return await session.exec_get_one(query)

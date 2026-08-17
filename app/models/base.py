@@ -5,6 +5,8 @@ from pydantic.alias_generators import to_camel
 from sqlalchemy.orm import declared_attr
 from sqlmodel import Field, SQLModel
 
+from app.models.types.snowflake_id import DefaultSnowflakeId, SnowflakeId
+
 
 class Base(SQLModel):
     class Config:
@@ -31,3 +33,7 @@ class PrimaryKeyBase(Base):
 
 class UUIDBase(Base):
     id: UUID = Field(default_factory=uuid4)
+
+
+class SnowflakeIdBase(Base):
+    id: SnowflakeId = DefaultSnowflakeId()

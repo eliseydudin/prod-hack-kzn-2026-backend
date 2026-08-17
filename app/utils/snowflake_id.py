@@ -21,5 +21,5 @@ def generate_snowflake_id(epoch: Optional[datetime] = None):
     return (delta_limited << (10 + 12)) | (settings.machine_id << 12) | unique_id
 
 
-BASE_EPOCH = datetime(2020, 1, 1, tzinfo=UTC)
+BASE_EPOCH = datetime(2015, 1, 1, tzinfo=UTC)
 generate_snowflake_id_in_base_epoch = partial(generate_snowflake_id, epoch=BASE_EPOCH)
