@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     database_url: PostgresDsn
     jwt_token: str
 
+    frontend_build_path: Optional[str] = None
+
     admin_credentials: Optional[str] = None
     base_domain: Optional[str] = None
     cookie_domain: Optional[str] = None
