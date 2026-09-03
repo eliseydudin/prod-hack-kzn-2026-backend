@@ -3,6 +3,7 @@ from logging import getLogger
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.routing import APIRoute
 from starlette.responses import JSONResponse
 
 from app.api.impl.user import create_admin_user
@@ -17,6 +18,10 @@ from app.utils.logger import setup_logger
 logger = getLogger("app")
 
 
+def generate_unique_name(route: APIRoute):
+    return f"{route.tags[0]}-{route.name}"
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     await setup_tables()
@@ -28,7 +33,10 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    lifespan=lifespan,
+    generate_unique_id_function=generate_unique_name,
+)
 app.include_router(auth_router)
 app.include_router(admin_router)
 
