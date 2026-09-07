@@ -2,7 +2,7 @@ from os import path
 from random import randint
 from typing import Optional
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_extra_types.dsn import PostgresDsn
 from pydantic_settings import BaseSettings
 
@@ -16,9 +16,11 @@ class Settings(BaseSettings):
 
     frontend_build_path: Optional[str] = None
 
-    admin_credentials: Optional[str] = None
     base_domain: Optional[str] = None
     cookie_domain: Optional[str] = None
+
+    bootstrap_username: Optional[str] = None
+    bootstrap_password: Optional[str] = None
 
     google_client_id: str
     google_client_secret: str
@@ -37,23 +39,12 @@ class Settings(BaseSettings):
             raise ValueError("currently only the 'asyncpg' driver is supported")
         return value
 
-    @field_validator("admin_credentials", mode="after")
-    @classmethod
-    def validate_admin_credentials(cls, value: Optional[str]):
-        if value is None:
-            return value
+    @model_validator(mode="after")
+    def validate_bootstrap_credentials(self):
+        if (self.bootstrap_password is None) != (self.bootstrap_username is None):
+            raise ValueError("invalid bootstrap admin credentials")
 
-        username, password = value.split(",")
-        assert len(username) > 0
-        assert len(password) > 0
-
-        return value
-
-    def unwrap_admin_credentials(self) -> tuple[str, str]:
-        if self.admin_credentials is None:
-            raise ValueError("admin credentials are missing")
-        username, password = self.admin_credentials.split(",")
-        return (username, password)
+        return self
 
 
 settings = Settings()  # type: ignore

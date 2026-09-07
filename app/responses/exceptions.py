@@ -1,6 +1,6 @@
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Optional
 
-from pydantic import Field, TypeAdapter
+from pydantic import TypeAdapter
 from pydantic.alias_generators import to_camel
 from pydantic.dataclasses import dataclass
 
@@ -11,7 +11,7 @@ from app.models.types.time import CreatedAt, Timestamp
 class HTTPException(Exception):
     status_code: ClassVar[int] = 400
 
-    detail: dict[str, Any] = Field(default_factory=dict, examples=[{}])
+    detail: Optional[dict[str, Any]] = None
     message: str = "An error has occured"
     occured_at: Timestamp = CreatedAt()
 

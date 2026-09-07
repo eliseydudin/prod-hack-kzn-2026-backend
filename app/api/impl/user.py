@@ -1,3 +1,5 @@
+from logging import getLogger
+
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 
@@ -21,6 +23,8 @@ from app.responses.exceptions import (
 from app.settings import settings
 from app.utils.hasher import check_password, hash_password
 
+logger = getLogger(__name__)
+
 
 async def create_user(session: Session, req: CreateUserRequest):
     user_table = UserTable.model_validate(
@@ -36,27 +40,28 @@ async def create_user(session: Session, req: CreateUserRequest):
         raise ConflictError(message="A user with this name already exists")
 
 
-async def create_admin_user(session: Session):
-    if not settings.admin_credentials:
+async def create_bootstrap_user(session: Session):
+    if not settings.bootstrap_username or not settings.bootstrap_password:
         return
 
-    username, password = settings.unwrap_admin_credentials()
-    query = select(UserTable).where(UserTable.username == username)
+    username = settings.bootstrap_username
+    password = settings.bootstrap_password
+    query = select(UserTable).where(UserTable.role == UserRole.BOOTSTRAP)
 
-    if admin := await session.exec_get_one_or_none(query):
-        admin.role = UserRole.ADMIN
-        admin.password = hash_password(password)
-        session.add(admin)
-        await session.commit()
-        return
+    try:
+        if _admin := await session.exec_get_one_or_none(query):
+            raise ConflictError("attempted to create a new bootstrap user")
 
-    request = CreateUserRequest(
-        username=username,
-        password=password,
-        role=UserRole.ADMIN,
-    )
+        request = CreateUserRequest(
+            username=username,
+            password=password,
+            role=UserRole.BOOTSTRAP,
+        )
 
-    await create_user(session, request)
+        await create_user(session, request)
+    except ConflictError as e:
+        logger.error("", exc_info=e)
+        logger.info("consider removing bootstrap credentials from env")
 
 
 DUMMY_HASH = "$argon2id$v=19$m=65536,t=3,p=4$gD2/ebpnsnqEE8pEQAyI3g$TXaLDLSY+4mh/joQdYC8kV1D5lXewdL6BOyAX0QnxWY"

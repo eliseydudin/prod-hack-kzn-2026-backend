@@ -71,7 +71,7 @@ CurrentUser = Annotated[UserTable, Depends(get_current_user)]
 
 
 async def get_current_admin_payload(payload: CurrentUserPayload):
-    if payload.role != UserRole.ADMIN:
+    if payload.role not in (UserRole.ADMIN, UserRole.BOOTSTRAP):
         raise ForbiddenError
     return payload
 

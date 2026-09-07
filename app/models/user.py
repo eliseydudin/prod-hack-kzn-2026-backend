@@ -25,6 +25,7 @@ PASSWORD_REGEX = r"^[a-zA-Z0-9._?/+-]*$"
 
 
 class UserRole(StrEnum):
+    BOOTSTRAP = auto()
     USER = auto()
     ADMIN = auto()
 
@@ -67,10 +68,7 @@ class UserBase(Base):
 
 
 class UserExtraBase(UserBase, SnowflakeIdBase):
-    role: UserRole = Field(
-        default=UserRole.USER,
-        exclude=True,
-    )
+    role: UserRole = Field(default=UserRole.USER)
     created_at: Timestamp = CreatedAt()
     updated_at: Timestamp = UpdatedAt()
 

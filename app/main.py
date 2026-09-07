@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
 from starlette.responses import JSONResponse
 
-from app.api.impl.user import create_admin_user
+from app.api.impl.user import create_bootstrap_user
 from app.api.routers import admin_router, auth_router
 from app.database import get_session, setup_tables
 from app.models.status import Status
@@ -26,7 +26,7 @@ def generate_unique_name(route: APIRoute):
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     await setup_tables()
-    await async_foreach(get_session(), create_admin_user)
+    await async_foreach(get_session(), create_bootstrap_user)
     setup_logger(logger)
 
     logger.info("Setup complete")
