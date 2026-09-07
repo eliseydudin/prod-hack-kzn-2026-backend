@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from typing import Annotated
 
 from fastapi import Depends
@@ -19,6 +20,12 @@ maker = async_sessionmaker(engine, expire_on_commit=False, class_=Session)
 
 
 async def get_session():
+    async with maker() as session:
+        yield session
+
+
+@asynccontextmanager
+async def get_session_ctx():
     async with maker() as session:
         yield session
 
