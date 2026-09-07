@@ -139,8 +139,8 @@ async def get_user_from_google_profile(
         .join(UserIdentityTable)
         .where(
             UserTable.identity is not None,
-            UserIdentityTable.source == UserIdentitySource.GOOGLE,  # type: ignore
-            UserIdentityTable.identifier == profile.email,  # type: ignore
+            UserIdentityTable.source == UserIdentitySource.GOOGLE,
+            UserIdentityTable.identifier == profile.email,
         )
     )
 
