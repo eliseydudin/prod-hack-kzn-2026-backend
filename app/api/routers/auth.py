@@ -1,7 +1,7 @@
 from logging import getLogger
-from typing import Annotated, Optional
+from typing import Annotated
 
-from fastapi import Depends, Query, Response
+from fastapi import Depends, Response
 from fastapi.responses import RedirectResponse
 from fastapi.routing import APIRouter
 from fastapi.security.oauth2 import OAuth2PasswordRequestFormStrict
@@ -116,16 +116,12 @@ async def update_self(
 async def delete_self(
     me: CurrentUser,
     session: SessionDep,
-    hard: Optional[bool] = Query(
-        None, description="If true delete the user permanently"
-    ),
 ) -> None:
-    await user.delete_user(session, me, bool(hard))
+    await user.delete_user(session, me)
     logger.info(
-        "User @%s (%s) just deleted their account (permanently=%s)",
+        "User @%s (%s) just deleted their account",
         me.username,
         me.id,
-        "true" if hard else "false",
     )
 
 

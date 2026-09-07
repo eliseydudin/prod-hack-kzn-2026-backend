@@ -19,7 +19,8 @@ logger = getLogger("app")
 
 
 def generate_unique_name(route: APIRoute):
-    return f"{route.tags[0]}-{route.name}"
+    tag = route.tags[0] if route.tags else "root"
+    return f"{tag}-{route.name}"
 
 
 @asynccontextmanager
@@ -40,7 +41,7 @@ app = FastAPI(
 app.include_router(auth_router)
 app.include_router(admin_router)
 
-ALLOWED_ORIGINS = ["http://localhost:3000", "http://localhost:8000"]
+ALLOWED_ORIGINS = ["http://localhost:5173", "http://localhost:8000"]
 if domain := settings.base_domain:
     ALLOWED_ORIGINS += [
         f"http://{domain}",

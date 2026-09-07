@@ -93,19 +93,15 @@ async def edit_user(session: Session, user: UserTable, request: EditUserRequest)
         )
 
 
-async def delete_user(session: Session, user: UserTable, hard: bool = False):
+async def delete_user(session: Session, user: UserTable):
     if user.role == UserRole.ADMIN:
         raise ConflictError(
             message="Can't delete this user, because they are an admin",
             detail={"username": user.username, "sub": user.id},
         )
 
-    if not hard:
-        user.enabled = False
-        session.add(user)
-    else:
-        await session.delete(user)
-
+    user.enabled = False
+    session.add(user)
     await session.commit()
 
 

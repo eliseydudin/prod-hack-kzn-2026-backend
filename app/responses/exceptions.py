@@ -4,7 +4,7 @@ from pydantic import Field, TypeAdapter
 from pydantic.alias_generators import to_camel
 from pydantic.dataclasses import dataclass
 
-from app.models.types.time import CreatedAt, IntTimestampMs
+from app.models.types.time import CreatedAt, Timestamp
 
 
 @dataclass(kw_only=True, config={"alias_generator": to_camel})
@@ -13,7 +13,7 @@ class HTTPException(Exception):
 
     detail: dict[str, Any] = Field(default_factory=dict, examples=[{}])
     message: str = "An error has occured"
-    occured_at: IntTimestampMs = CreatedAt()
+    occured_at: Timestamp = CreatedAt()
 
     def dump_python(self) -> Any:
         return TypeAdapter(type(self)).dump_python(self, mode="json", by_alias=True)
