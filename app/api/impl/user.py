@@ -59,10 +59,17 @@ async def create_admin_user(session: Session):
     await create_user(session, request)
 
 
+DUMMY_HASH = "$argon2id$v=19$m=65536,t=3,p=4$gD2/ebpnsnqEE8pEQAyI3g$TXaLDLSY+4mh/joQdYC8kV1D5lXewdL6BOyAX0QnxWY"
+
+
 async def login_user(session: Session, username: str, password: str):
     try:
         query = select(UserTable).where(UserTable.username == username)
-        user = await session.exec_get_one(query)
+        user = await session.exec_get_one_or_none(query)
+
+        if user is None:
+            check_password(DUMMY_HASH, "dummy_password")
+            raise NotFoundError
 
         if user.enabled and user.password and check_password(user.password, password):
             return user
