@@ -14,3 +14,7 @@ wheels/
 
 # SQLite files
 *.db
+
+# Cache
+**/.pytest_cache/
+**/.ruff_cache/
