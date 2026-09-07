@@ -8,8 +8,7 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    class Config:
-        env_file = ".env" if path.exists(".env") else None
+    model_config = {"env_file": ".env" if path.exists(".env") else None}
 
     database_url: PostgresDsn
     jwt_token: str

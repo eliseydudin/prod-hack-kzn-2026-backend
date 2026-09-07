@@ -9,11 +9,12 @@ from app.models.types.snowflake_id import DefaultSnowflakeId, SnowflakeId
 
 
 class Base(SQLModel):
-    class Config:
-        alias_generator = to_camel
-        populate_by_name = True
-        from_attributes = True
-        regex_engine = "python-re"
+    model_config = {
+        "alias_generator": to_camel,
+        "populate_by_name": True,
+        "from_attributes": True,
+        "regex_engine": "python-re",
+    }
 
     @declared_attr  # type: ignore
     def __tablename__(cls) -> str:  # type: ignore

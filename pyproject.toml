@@ -16,3 +16,9 @@ dependencies = [
     "pyjwt>=2.13.0",
     "sqlmodel>=0.0.38",
 ]
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.12.0",
+    "pytest>=9.1.1",
+]
