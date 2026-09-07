@@ -25,9 +25,9 @@ def generate_unique_name(route: APIRoute):
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    setup_logger(logger)
     await setup_tables()
     await async_foreach(get_session(), create_bootstrap_user)
-    setup_logger(logger)
 
     logger.info("Setup complete")
 

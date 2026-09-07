@@ -60,8 +60,7 @@ async def create_bootstrap_user(session: Session):
 
         await create_user(session, request)
     except ConflictError as e:
-        logger.error("", exc_info=e)
-        logger.info("consider removing bootstrap credentials from env")
+        logger.warning("consider removing bootstrap credentials from env", exc_info=e)
 
 
 DUMMY_HASH = "$argon2id$v=19$m=65536,t=3,p=4$gD2/ebpnsnqEE8pEQAyI3g$TXaLDLSY+4mh/joQdYC8kV1D5lXewdL6BOyAX0QnxWY"
