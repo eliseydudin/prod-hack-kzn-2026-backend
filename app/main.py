@@ -8,11 +8,10 @@ from starlette.responses import JSONResponse
 
 from app.api.impl.user import create_bootstrap_user
 from app.api.routers import admin_router, auth_router
-from app.database import get_session, setup_tables
+from app.database import get_session_ctx, setup_tables
 from app.models.status import Status
 from app.responses import HTTPException, responses
 from app.settings import settings
-from app.utils.iter import async_foreach
 from app.utils.logger import setup_logger
 
 logger = getLogger("app")
@@ -27,7 +26,8 @@ def generate_unique_name(route: APIRoute):
 async def lifespan(_app: FastAPI):
     setup_logger(logger)
     await setup_tables()
-    await async_foreach(get_session(), create_bootstrap_user)
+    async with get_session_ctx() as sesh:
+        await create_bootstrap_user(sesh)
 
     logger.info("Setup complete")
 

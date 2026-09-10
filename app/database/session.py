@@ -1,4 +1,4 @@
-from typing import Any, Optional, TypeVar
+from typing import Optional
 
 from sqlalchemy import ScalarResult
 from sqlalchemy.exc import NoResultFound
@@ -7,10 +7,8 @@ from sqlalchemy.sql.selectable import TypedReturnsRows
 
 from app.responses.exceptions import NotFoundError
 
-_T = TypeVar("_T", bound=Any)
 
-
-class Session(AsyncSession):
+class Session[_T](AsyncSession):
     async def exec(self, statement: TypedReturnsRows[tuple[_T]]) -> ScalarResult[_T]:
         result = await self.execute(statement)
         return result.scalars()

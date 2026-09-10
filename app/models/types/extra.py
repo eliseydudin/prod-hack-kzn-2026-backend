@@ -1,9 +1,7 @@
-from typing import Any, Optional, Sequence, TypeVar
-
-_T = TypeVar("_T")
+from typing import Any, Optional, Sequence
 
 
-def Extra(
+def Extra[_T](
     *,
     example: Optional[_T] = None,
     examples: Optional[Sequence[_T]] = None,

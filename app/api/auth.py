@@ -1,4 +1,4 @@
-from typing import Annotated, TypeVar, Union
+from typing import Annotated, Union
 
 import jwt
 from fastapi import Cookie, Depends, Response
@@ -31,10 +31,7 @@ def encode_token(token: Union[RefreshToken, AuthToken]) -> str:
     )
 
 
-_Model = TypeVar("_Model", bound=Base)
-
-
-def decode_token(token: str, model_type: type[_Model]) -> _Model:
+def decode_token[_Model: Base](token: str, model_type: type[_Model]) -> _Model:
     return model_type.model_validate(
         jwt.decode(
             token,
