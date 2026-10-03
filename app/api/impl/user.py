@@ -49,7 +49,7 @@ async def create_bootstrap_user(session: Session):
     query = select(UserTable).where(UserTable.role == UserRole.BOOTSTRAP)
 
     try:
-        if _admin := await session.exec_get_one_or_none(query):
+        if _admin := await session.scalar(query):
             raise ConflictError("attempted to create a new bootstrap user")
 
         request = CreateUserRequest(
@@ -69,7 +69,7 @@ DUMMY_HASH = "$argon2id$v=19$m=65536,t=3,p=4$gD2/ebpnsnqEE8pEQAyI3g$TXaLDLSY+4mh
 async def login_user(session: Session, username: str, password: str):
     try:
         query = select(UserTable).where(UserTable.username == username)
-        user = await session.exec_get_one_or_none(query)
+        user = await session.scalar(query)
 
         if user is None:
             check_password(DUMMY_HASH, "dummy_password")
@@ -155,7 +155,7 @@ async def get_user_from_google_profile(
         )
     )
 
-    if user := await session.exec_get_one_or_none(query):
+    if user := await session.scalar(query):
         return False, user
 
     return True, await create_user_from_google_profile(session, profile)
@@ -163,4 +163,9 @@ async def get_user_from_google_profile(
 
 async def get_user_by_id(session: Session, id: SnowflakeId):
     query = select(UserTable).where(UserTable.id == id)
-    return await session.exec_get_one(query)
+    user = await session.scalar(query)
+
+    if not user:
+        raise NotFoundError
+
+    return user

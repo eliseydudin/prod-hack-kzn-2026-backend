@@ -2,7 +2,7 @@ from logging import getLogger
 
 from fastapi import APIRouter, Query
 
-from app.api.auth import CurrentAdmin, CurrentAdminPayload
+from app.api.auth import CurrentAdmin
 from app.api.impl import user
 from app.api.impl.admin import list_users
 from app.database.connection import SessionDep
@@ -46,7 +46,7 @@ async def create_user(
     status_code=200,
 )
 async def list_all_users(
-    _admin: CurrentAdminPayload,
+    _admin: CurrentAdmin,
     session: SessionDep,
     page: int = Query(0, ge=0),
     size: int = Query(20, gt=0),

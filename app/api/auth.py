@@ -41,43 +41,27 @@ def decode_token[_Model: Base](token: str, model_type: type[_Model]) -> _Model:
     )
 
 
-async def get_current_user_payload(token: str = Depends(oauth2_scheme)):
+async def get_current_user(session: SessionDep, token: str = Depends(oauth2_scheme)):
     try:
-        return decode_token(token, AuthToken)
-    except ValidationError, jwt.PyJWTError:
-        raise AuthorizationError()
-
-
-CurrentUserPayload = Annotated[AuthToken, Depends(get_current_user_payload)]
-
-
-async def get_current_user(session: SessionDep, auth_token: CurrentUserPayload):
-    try:
+        auth_token = decode_token(token, AuthToken)
         query = select(UserTable).where(UserTable.id == auth_token.sub)
-        user = await session.exec_get_one(query)
+        user = await session.scalar(query)
 
-        if not user.enabled:
+        if not user or not user.enabled:
             raise NotFoundError
 
         return user
-    except jwt.PyJWTError, NotFoundError:
+    except ValidationError, jwt.PyJWTError, NotFoundError:
         raise AuthorizationError
 
 
 CurrentUser = Annotated[UserTable, Depends(get_current_user)]
 
 
-async def get_current_admin_payload(payload: CurrentUserPayload):
-    if payload.role not in (UserRole.ADMIN, UserRole.BOOTSTRAP):
+async def get_current_admin(user: CurrentUser):
+    if user.role not in (UserRole.ADMIN, UserRole.BOOTSTRAP):
         raise ForbiddenError
-    return payload
-
-
-CurrentAdminPayload = Annotated[AuthToken, Depends(get_current_admin_payload)]
-
-
-async def get_current_admin(session: SessionDep, auth_token: CurrentAdminPayload):
-    return await get_current_user(session, auth_token)
+    return user
 
 
 CurrentAdmin = Annotated[UserTable, Depends(get_current_admin)]

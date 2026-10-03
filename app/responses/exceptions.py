@@ -3,8 +3,9 @@ from typing import Any, ClassVar, Optional
 from pydantic import TypeAdapter
 from pydantic.alias_generators import to_camel
 from pydantic.dataclasses import dataclass
+from sqlmodel import Field
 
-from app.models.types.time import CreatedAt, Timestamp
+from app.models.types.time import Timestamp, utc_now
 
 
 @dataclass(kw_only=True, config={"alias_generator": to_camel})
@@ -13,7 +14,7 @@ class HTTPException(Exception):
 
     detail: Optional[dict[str, Any]] = None
     message: str = "An error has occured"
-    occured_at: Timestamp = CreatedAt()
+    occured_at: Timestamp = Field(default_factory=utc_now)
 
     def dump_python(self) -> Any:
         return TypeAdapter(type(self)).dump_python(self, mode="json", by_alias=True)

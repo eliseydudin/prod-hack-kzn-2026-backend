@@ -18,6 +18,6 @@ async def list_users(
     )
     if filter_enabled:
         query = query.where(UserTable.enabled)
-    result = [User.model_validate(ut) for ut in (await session.exec(query)).all()]
+    result = [User.model_validate(ut) for ut in (await session.scalar(query) or [])]
 
     return UserPaginationResult(items=result, amount=len(result), size=size, page=page)

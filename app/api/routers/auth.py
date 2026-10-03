@@ -8,7 +8,6 @@ from fastapi.security.oauth2 import OAuth2PasswordRequestFormStrict
 
 from app.api.auth import (
     CurrentUser,
-    CurrentUserPayload,
     RefreshTokenDep,
     delete_refresh_token,
     encode_token,
@@ -76,7 +75,7 @@ async def refresh_token(
     description="Deletes the refresh token",
 )
 async def logout(
-    _user: CurrentUserPayload,
+    _user: CurrentUser,
     response: Response,
 ):
     delete_refresh_token(response)
