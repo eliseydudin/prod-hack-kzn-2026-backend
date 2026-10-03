@@ -7,6 +7,7 @@ from pydantic import ValidationError
 from sqlmodel import select
 
 from app.database.connection import SessionDep
+from app.database.session import Session
 from app.models.auth import AuthToken, RefreshToken
 from app.models.base import Base
 from app.models.types.time import utc_now
@@ -17,6 +18,7 @@ from app.settings import settings
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/auth/login",
     refreshUrl="/auth/refresh",
+    auto_error=False,
 )
 oauth2_scheme.make_not_authenticated_error = lambda: AuthorizationError(
     message="Not authenticated"
@@ -41,7 +43,7 @@ def decode_token[_Model: Base](token: str, model_type: type[_Model]) -> _Model:
     )
 
 
-async def get_current_user(session: SessionDep, token: str = Depends(oauth2_scheme)):
+async def _get_current_user(session: Session, token: str):
     try:
         auth_token = decode_token(token, AuthToken)
         query = select(UserTable).where(UserTable.id == auth_token.sub)
@@ -55,7 +57,24 @@ async def get_current_user(session: SessionDep, token: str = Depends(oauth2_sche
         raise AuthorizationError
 
 
+async def get_current_user(
+    session: SessionDep,
+    token: str | None = Depends(oauth2_scheme),
+):
+    if not token:
+        raise AuthorizationError
+    return await _get_current_user(session, token)
+
+
+async def get_current_optional_user(
+    session: SessionDep,
+    token: str | None = Depends(oauth2_scheme),
+):
+    return await _get_current_user(session, token) if token else None
+
+
 CurrentUser = Annotated[UserTable, Depends(get_current_user)]
+CurrentOptionalUser = Annotated[UserTable | None, Depends(get_current_optional_user)]
 
 
 async def get_current_admin(user: CurrentUser):
