@@ -1,7 +1,7 @@
 from enum import StrEnum, auto
 from typing import Optional
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from sqlmodel import Field, Relationship
 
 from app.models.base import (
@@ -117,6 +117,12 @@ class RegisterUserRequest(UserBase):
 
 class CreateUserRequest(RegisterUserRequest):
     role: UserRole = UserRole.USER
+
+    @model_validator(mode="after")
+    def validate_user_role(self):
+        if self.role == UserRole.BOOTSTRAP:
+            raise ValueError("Can't instantiate a bootstrap user this way")
+        return self
 
 
 class EditUserRequest(Base):
