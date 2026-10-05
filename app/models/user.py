@@ -142,3 +142,4 @@ class UserPaginationResult(Base):
     size: int
     page: int
     amount: int
+    is_at_end: bool
