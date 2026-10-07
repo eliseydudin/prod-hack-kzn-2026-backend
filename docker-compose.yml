@@ -1,0 +1,26 @@
+services:
+    postgres:
+        image: postgres:16-alpine
+        container_name: postgres
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB -h 127.0.0.1"]
+            interval: 30s
+            timeout: 3s
+            retries: 10
+            start_period: 10s
+        env_file: .env
+        volumes:
+            - db-storage:/var/lib/postgresql/data
+                
+    backend:
+        container_name: backend
+        build: .
+        env_file: .env
+        depends_on:
+            postgres:
+                condition: service_healthy
+        ports:
+            - "8000:80"
+
+volumes:
+    db-storage:
