@@ -95,7 +95,9 @@ def send_refresh_token(user: UserTable, response: Response):
         expires=token.exp,
         domain=settings.cookie_domain,
         httponly=True,
-        samesite="lax",
+        samesite="none",
+        secure=True,
+        partitioned=True,
     )
 
 
