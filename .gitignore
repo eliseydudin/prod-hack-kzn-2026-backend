@@ -18,3 +18,6 @@ wheels/
 # Cache
 **/.pytest_cache/
 **/.ruff_cache/
+
+# Local Gitlab CI
+.gitlab-ci-local/

@@ -1,0 +1,52 @@
+stages:
+  - lint
+  - test
+  - build
+
+lint:
+  stage: lint
+  image: ghcr.io/astral-sh/ruff:0.16.10-alpine
+  before_script:
+    - ruff version
+  script:
+    - ruff check --output-format=gitlab --output-file=code-quality-report.json || true
+  artifacts:
+    reports:
+      codequality: code-quality-report.json
+
+variables:
+  POSTGRES_DB: testdb
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: postgres
+
+.test_base:
+  stage: test
+  image: python:3.14-slim
+  cache:
+    key:
+      prefix: uv
+      files:
+        - ./uv.lock
+    paths:
+      - .uv-cache/
+  before_script:
+    - pip install uv --quiet
+    - uv sync --frozen --quiet
+    - cp .env.example .env
+
+test:unit:
+  extends: .test_base
+  script:
+    - uv run pytest test/unit
+
+test:integration:
+  services:
+    - postgres:16
+  extends: .test_base
+  script:
+    - uv run pytest test/integration
+
+build:
+  stage: build
+  script:
+    - echo "done"
