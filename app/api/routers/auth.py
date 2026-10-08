@@ -118,7 +118,7 @@ async def delete_self(
 ) -> None:
     await user.delete_user(session, me)
     logger.info(
-        "User @%s (%s) just deleted their account",
+        "User @%s (%s) deleted their account",
         me.username,
         me.id,
     )
@@ -144,7 +144,7 @@ async def google_auth_callback(
     created, new_user = await user.get_user_from_google_profile(session, profile)
     if created:
         logger.info(
-            "Created a new account @%s (%s) by using Google's social login (%s)",
+            "Created a new account @%s (%s) using Google's social login (%s)",
             new_user.username,
             new_user.id,
             profile.email,
