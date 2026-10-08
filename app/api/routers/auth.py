@@ -1,7 +1,7 @@
 from logging import getLogger
 from typing import Annotated
 
-from fastapi import Depends, Response
+from fastapi import Depends, Query, Response
 from fastapi.responses import RedirectResponse
 from fastapi.routing import APIRouter
 from fastapi.security.oauth2 import OAuth2PasswordRequestFormStrict
@@ -128,9 +128,9 @@ google_router = APIRouter(prefix="/google", tags=["google"], include_in_schema=F
 
 
 @google_router.get("/", status_code=307)
-async def google_auth():
+async def google_auth(redirect: str | None = Query(default=None)):
     redirect_url = await google.google_api.get_authorization_url(
-        settings.google_callback_url
+        settings.google_callback_url, state=redirect
     )
     return RedirectResponse(redirect_url)
 
@@ -139,8 +139,8 @@ async def google_auth():
 async def google_auth_callback(
     session: SessionDep,
     profile: google.GoogleProfileDep,
-    response: Response,
-) -> User:
+    state: str | None = Query(default=None),
+):
     created, new_user = await user.get_user_from_google_profile(session, profile)
     if created:
         logger.info(
@@ -150,8 +150,10 @@ async def google_auth_callback(
             profile.email,
         )
 
-    send_refresh_token(new_user, response)
-    return User.model_validate(new_user)
+    if state:
+        response = RedirectResponse(state)
+        send_refresh_token(new_user, response)
+        return response
 
 
 router.include_router(google_router)

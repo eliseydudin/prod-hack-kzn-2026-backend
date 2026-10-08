@@ -1,6 +1,5 @@
 from os import path
 from random import randint
-from typing import Optional
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_extra_types.dsn import PostgresDsn
@@ -13,13 +12,13 @@ class Settings(BaseSettings):
     database_url: PostgresDsn
     jwt_token: str
 
-    frontend_build_path: Optional[str] = None
+    frontend_build_path: str | None = None
 
-    base_domain: Optional[str] = None
-    cookie_domain: Optional[str] = None
+    base_domain: str | None = None
+    cookie_domain: str | None = None
 
-    bootstrap_username: Optional[str] = None
-    bootstrap_password: Optional[str] = None
+    bootstrap_username: str | None = None
+    bootstrap_password: str | None = None
 
     google_client_id: str
     google_client_secret: str
