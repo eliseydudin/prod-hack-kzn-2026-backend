@@ -56,9 +56,6 @@ app.add_middleware(
     allow_credentials=True,
 )
 
-if frontend_build_path := settings.frontend_build_path:
-    app.frontend("/", directory=frontend_build_path)
-
 
 @app.exception_handler(HTTPException)
 async def handle_http_exceptions(_app, error: HTTPException):
