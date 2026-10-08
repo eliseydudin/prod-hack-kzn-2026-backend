@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 from logging import getLogger
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
 from starlette.responses import JSONResponse
@@ -11,6 +12,7 @@ from app.api.routers import admin_router, auth_router
 from app.database import get_session_ctx, setup_tables
 from app.models.status import Status
 from app.responses import HTTPException, responses
+from app.responses.exceptions import ValidationError
 from app.settings import settings
 from app.utils.logger import setup_logger
 
@@ -62,6 +64,14 @@ async def handle_http_exceptions(_app, error: HTTPException):
     return JSONResponse(
         error.dump_python(),
         status_code=error.status_code,
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def handle_validation_error(_app, error: RequestValidationError):
+    return JSONResponse(
+        ValidationError.from_fastapi(error).dump_python(),
+        status_code=ValidationError.status_code,
     )
 
 

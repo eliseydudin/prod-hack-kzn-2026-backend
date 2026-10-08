@@ -1,5 +1,7 @@
-from typing import Any, ClassVar, Optional
+from enum import StrEnum, auto
+from typing import Any, ClassVar
 
+from fastapi.exceptions import RequestValidationError
 from pydantic import TypeAdapter
 from pydantic.alias_generators import to_camel
 from pydantic.dataclasses import dataclass
@@ -8,13 +10,22 @@ from sqlmodel import Field
 from app.models.types.time import Timestamp, utc_now
 
 
+class ErrorCode(StrEnum):
+    ERROR_OCCURED = auto()
+    AUTHORIZATION_ERROR = auto()
+    NOT_FOUND = auto()
+    CONFLICT = auto()
+    GOOGLE_INTERACTION_FAILED = auto()
+    VALIDATION_FAILED = auto()
+
+
 @dataclass(kw_only=True, config={"alias_generator": to_camel})
 class HTTPException(Exception):
     status_code: ClassVar[int] = 400
 
-    detail: Optional[dict[str, Any]] = None
-    message: str = "An error has occured"
+    detail: dict[str, Any] = Field(default_factory=dict)
     occured_at: Timestamp = Field(default_factory=utc_now)
+    error_code: ErrorCode = ErrorCode.ERROR_OCCURED
 
     def dump_python(self) -> Any:
         return TypeAdapter(type(self)).dump_python(self, mode="json", by_alias=True)
@@ -22,46 +33,64 @@ class HTTPException(Exception):
 
 @dataclass
 class BadRequestError(HTTPException):
-    message: str = "Bad request"
+    pass
 
 
 @dataclass
 class AuthorizationError(HTTPException):
     status_code = 401
-    message: str = "Unauthorized"
+    error_code: ErrorCode = ErrorCode.AUTHORIZATION_ERROR
 
 
 @dataclass
 class ForbiddenError(HTTPException):
     status_code = 403
-    message: str = "Forbidden"
+    error_code: ErrorCode = ErrorCode.AUTHORIZATION_ERROR
 
 
 @dataclass
 class NotFoundError(HTTPException):
     status_code = 404
-    message: str = "Not found"
+    error_code: ErrorCode = ErrorCode.NOT_FOUND
 
 
 @dataclass
 class ConflictError(HTTPException):
     status_code = 409
-    message: str = "Conflict"
+    error_code: ErrorCode = ErrorCode.CONFLICT
 
 
 @dataclass
 class GoneError(HTTPException):
     status_code = 410
-    message: str = "Gone"
+    error_code: ErrorCode = ErrorCode.NOT_FOUND
 
 
 @dataclass
 class InternalServerError(HTTPException):
     status_code = 500
-    message: str = "Internal server error"
 
 
 @dataclass
 class ServiceUnavailableError(HTTPException):
     status_code = 503
-    message: str = "Service unavailable"
+
+
+@dataclass
+class ValidationError(HTTPException):
+    status_code = 422
+    error_code: ErrorCode = ErrorCode.VALIDATION_FAILED
+
+    @classmethod
+    def from_fastapi(cls, validation_error: RequestValidationError):
+        return ValidationError(
+            detail={
+                "errors": validation_error.errors(),
+            },
+        )
+
+
+@dataclass
+class GoogleInteractionFailed(HTTPException):
+    status_code = 400
+    error_code: ErrorCode = ErrorCode.GOOGLE_INTERACTION_FAILED

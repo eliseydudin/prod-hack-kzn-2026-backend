@@ -11,6 +11,7 @@ from app.responses.exceptions import (
     InternalServerError,
     NotFoundError,
     ServiceUnavailableError,
+    ValidationError,
 )
 from app.utils.iter import extend_with
 
@@ -21,7 +22,7 @@ def responses(*args: Content | type[HTTPException]):
     """
 
     result: dict[str | int, Any] = {}
-    for arg in extend_with(args, InternalServerError):
+    for arg in extend_with(args, InternalServerError, ValidationError):
         if isinstance(arg, Content):
             if result.get(arg.status_code) is None:
                 result[arg.status_code] = {"content": {}}
@@ -42,4 +43,5 @@ __all__ = [
     "NotFoundError",
     "Content",
     "ServiceUnavailableError",
+    "ValidationError",
 ]
