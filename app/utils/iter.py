@@ -1,7 +1,7 @@
-from typing import Iterable
+from collections.abc import Iterable
 
 
-def extend_with[_T](iter: Iterable[_T], *values: _T) -> Iterable[_T]:
+def extend_with[T](iter: Iterable[T], *values: T) -> Iterable[T]:
     """
     Yield all values from `iter` and append `values` at the end
 

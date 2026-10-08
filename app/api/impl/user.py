@@ -37,7 +37,11 @@ async def create_user(session: Session, req: CreateUserRequest):
         await session.refresh(user_table)
         return user_table
     except IntegrityError:
-        raise ConflictError(message="A user with this name already exists")
+        raise ConflictError(
+            detail={
+                "message": "A user with this name already exists",
+            }
+        )
 
 
 async def create_bootstrap_user(session: Session):
@@ -50,7 +54,9 @@ async def create_bootstrap_user(session: Session):
 
     try:
         if _admin := await session.scalar(query):
-            raise ConflictError("attempted to create a new bootstrap user")
+            raise ConflictError(
+                detail={"message": "attempted to create a new bootstrap user"}
+            )
 
         request = CreateUserRequest(
             username=username,
@@ -99,16 +105,21 @@ async def edit_user(session: Session, user: UserTable, request: EditUserRequest)
         return user
     except IntegrityError:
         raise ConflictError(
-            message="Conflict in updating the user's fields",
-            detail={"conflicted": list(updated_fields)},
+            detail={
+                "conflicted": list(updated_fields),
+                "message": "Conflict in updating the user's fields",
+            },
         )
 
 
 async def delete_user(session: Session, user: UserTable):
     if user.role == UserRole.ADMIN:
         raise ConflictError(
-            message="Can't delete this user, because they are an admin",
-            detail={"username": user.username, "sub": user.id},
+            detail={
+                "username": user.username,
+                "sub": user.id,
+                "message": "Can't delete this user, because they are an admin",
+            },
         )
 
     user.enabled = False

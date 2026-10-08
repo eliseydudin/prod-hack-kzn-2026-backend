@@ -1,4 +1,4 @@
-from typing import Annotated, Optional
+from typing import Annotated
 
 import jwt
 from fastapi import Depends, Query
@@ -7,7 +7,7 @@ from httpx_oauth.oauth2 import GetAccessTokenError
 from pydantic import ValidationError
 
 from app.api.google.models import GoogleProfile
-from app.responses import BadRequestError
+from app.responses.exceptions import GoogleInteractionFailed as HttpGoogleError
 from app.settings import settings
 
 google_api = GoogleOAuth2(
@@ -24,7 +24,7 @@ class GoogleInteractionFailed(Exception):
 async def extract_google_user_profile(code: str, callback_url: str) -> GoogleProfile:
     try:
         access_token = await google_api.get_access_token(code, callback_url)
-        id_token: Optional[str] = access_token.get("id_token")
+        id_token: str | None = access_token.get("id_token")
 
         if id_token is None:
             raise GoogleInteractionFailed("No id_token found")
@@ -58,7 +58,7 @@ async def extract_google_user_profile_as_dependency(code: str = Query()):
     except GoogleInteractionFailed as e:
         detail = {} if not e.args else {"inner": e.args[0]}
         # TODO make this the proper HTTP error
-        raise BadRequestError(message="Google interaction failed", detail=detail)
+        raise HttpGoogleError(detail=detail)
 
 
 GoogleProfileDep = Annotated[

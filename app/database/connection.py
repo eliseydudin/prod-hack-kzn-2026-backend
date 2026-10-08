@@ -11,7 +11,6 @@ from sqlmodel import SQLModel
 import app.models  # noqa
 from app.database.session import Session
 
-# noqa because sql alchemy needs the table metadata
 # to setup the tables in the database
 from app.settings import settings
 
