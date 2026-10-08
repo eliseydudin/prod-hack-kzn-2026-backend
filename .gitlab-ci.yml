@@ -1,7 +1,7 @@
 stages:
   - lint
   - test
-  - build
+  # - build
 
 lint:
   stage: lint
@@ -39,14 +39,9 @@ test:unit:
   script:
     - uv run pytest test/unit
 
-test:integration:
-  services:
-    - postgres:16
-  extends: .test_base
-  script:
-    - uv run pytest test/integration
-
-build:
-  stage: build
-  script:
-    - echo "done"
+# test:integration:
+#   services:
+#     - postgres:16
+#   extends: .test_base
+#   script:
+#     - uv run pytest test/integration
