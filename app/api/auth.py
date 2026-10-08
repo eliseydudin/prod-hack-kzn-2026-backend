@@ -1,4 +1,4 @@
-from typing import Annotated, Union
+from typing import Annotated
 
 import jwt
 from fastapi import Cookie, Depends, Response
@@ -20,12 +20,10 @@ oauth2_scheme = OAuth2PasswordBearer(
     refreshUrl="/auth/refresh",
     auto_error=False,
 )
-oauth2_scheme.make_not_authenticated_error = lambda: AuthorizationError(
-    message="Not authenticated"
-)  # type: ignore
+oauth2_scheme.make_not_authenticated_error = lambda: AuthorizationError()  # type: ignore
 
 
-def encode_token(token: Union[RefreshToken, AuthToken]) -> str:
+def encode_token(token: RefreshToken | AuthToken) -> str:
     return jwt.encode(
         token.model_dump(mode="json"),
         key=settings.jwt_token,

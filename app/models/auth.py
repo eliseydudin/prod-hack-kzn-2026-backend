@@ -28,7 +28,8 @@ class RefreshToken(Base):
 
 
 class AuthTokenResponse(Base):
-    model_config = {"alias_generator": None}
+    class Config:
+        alias_generator = None
 
     access_token: str = Field(schema_extra=Extra(pattern=JWT_TOKEN_PATTERN))
     token_type: Literal["bearer"] = "bearer"
