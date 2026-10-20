@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from enum import StrEnum, auto
 from typing import Any, ClassVar
 
@@ -78,16 +79,13 @@ class ServiceUnavailableError(HTTPException):
 
 @dataclass
 class ValidationError(HTTPException):
+    errors: Sequence[Any]
     status_code = 422
     error_code: ErrorCode = ErrorCode.VALIDATION_FAILED
 
     @classmethod
     def from_fastapi(cls, validation_error: RequestValidationError):
-        return ValidationError(
-            detail={
-                "errors": validation_error.errors(),
-            },
-        )
+        return ValidationError(errors=validation_error.errors())
 
 
 @dataclass
