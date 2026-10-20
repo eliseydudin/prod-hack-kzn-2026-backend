@@ -1,12 +1,13 @@
 from typing import Any
 
 from app.responses.content import Content
-from app.responses.exceptions import (
+from app.responses.exceptions.http import (
     AuthorizationError,
     BadRequestError,
     ConflictError,
     ForbiddenError,
     GoneError,
+    GoogleInteractionFailed,
     HTTPException,
     InternalServerError,
     NotFoundError,
@@ -44,4 +45,5 @@ __all__ = [
     "Content",
     "ServiceUnavailableError",
     "ValidationError",
+    "GoogleInteractionFailed",
 ]

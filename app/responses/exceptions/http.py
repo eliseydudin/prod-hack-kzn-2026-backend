@@ -9,6 +9,7 @@ from pydantic.dataclasses import dataclass
 from sqlmodel import Field
 
 from app.models.types.time import Timestamp, utc_now
+from app.responses.exceptions.google import FailureCause
 
 
 class ErrorCode(StrEnum):
@@ -90,5 +91,6 @@ class ValidationError(HTTPException):
 
 @dataclass
 class GoogleInteractionFailed(HTTPException):
+    cause: FailureCause
     status_code = 400
     error_code: ErrorCode = ErrorCode.GOOGLE_INTERACTION_FAILED
