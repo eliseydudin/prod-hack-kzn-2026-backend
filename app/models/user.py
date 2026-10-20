@@ -1,4 +1,4 @@
-from enum import StrEnum, auto
+from enum import auto
 from typing import Optional
 
 from pydantic import field_validator, model_validator
@@ -11,6 +11,7 @@ from app.models.base import (
 )
 from app.models.types.extra import Extra
 from app.models.types.missing import MaybeMissing
+from app.models.types.pascal_case_enum import PascalCaseEnum
 from app.models.types.time import CreatedAt, Timestamp, UpdatedAt
 
 USERNAME_REGEX = r"^[a-zA-Z0-9._]*$"
@@ -24,7 +25,7 @@ USERNAME_EXAMPLES = [
 PASSWORD_REGEX = r"^[a-zA-Z0-9._?/+-]*$"
 
 
-class UserRole(StrEnum):
+class UserRole(PascalCaseEnum):
     BOOTSTRAP = auto()
     USER = auto()
     ADMIN = auto()
@@ -73,7 +74,7 @@ class UserExtraBase(UserBase, SnowflakeIdBase):
     updated_at: Timestamp = UpdatedAt()
 
 
-class UserIdentitySource(StrEnum):
+class UserIdentitySource(PascalCaseEnum):
     GOOGLE = "google"
 
 

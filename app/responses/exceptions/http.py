@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from enum import StrEnum, auto
+from enum import auto
 from typing import Any, ClassVar
 
 from fastapi.exceptions import RequestValidationError
@@ -8,11 +8,12 @@ from pydantic.alias_generators import to_camel
 from pydantic.dataclasses import dataclass
 from sqlmodel import Field
 
+from app.models.types.pascal_case_enum import PascalCaseEnum
 from app.models.types.time import Timestamp, utc_now
 from app.responses.exceptions.google import FailureCause
 
 
-class ErrorCode(StrEnum):
+class ErrorCode(PascalCaseEnum):
     ERROR_OCCURED = auto()
     AUTHORIZATION_ERROR = auto()
     NOT_FOUND = auto()

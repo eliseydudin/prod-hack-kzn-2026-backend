@@ -1,7 +1,9 @@
-from enum import StrEnum, auto
+from enum import auto
+
+from app.models.types.pascal_case_enum import PascalCaseEnum
 
 
-class FailureCause(StrEnum):
+class FailureCause(PascalCaseEnum):
     NO_ID_TOKEN = auto()
     """
     Raised when the returned access token doesn't contain an ID token.
