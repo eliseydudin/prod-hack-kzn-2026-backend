@@ -12,7 +12,7 @@ from app.models.auth import AuthToken, RefreshToken
 from app.models.base import Base
 from app.models.types.time import utc_now
 from app.models.user import UserRole, UserTable
-from app.responses.exceptions import AuthorizationError, ForbiddenError, NotFoundError
+from app.responses import AuthorizationError, ForbiddenError, NotFoundError
 from app.settings import settings
 
 oauth2_scheme = OAuth2PasswordBearer(

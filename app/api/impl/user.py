@@ -15,7 +15,7 @@ from app.models.user import (
     UserRole,
     UserTable,
 )
-from app.responses.exceptions import (
+from app.responses import (
     AuthorizationError,
     ConflictError,
     NotFoundError,

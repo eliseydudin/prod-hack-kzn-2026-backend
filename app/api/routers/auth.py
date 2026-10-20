@@ -23,8 +23,7 @@ from app.models.user import (
     RegisterUserRequest,
     User,
 )
-from app.responses import ConflictError, responses
-from app.responses.exceptions import AuthorizationError
+from app.responses import AuthorizationError, ConflictError, responses
 from app.settings import settings
 
 router = APIRouter(prefix="/auth", tags=["auth"])

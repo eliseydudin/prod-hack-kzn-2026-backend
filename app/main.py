@@ -11,8 +11,7 @@ from app.api.impl.user import create_bootstrap_user
 from app.api.routers import admin_router, auth_router
 from app.database import get_session_ctx, setup_tables
 from app.models.status import Status
-from app.responses import HTTPException, responses
-from app.responses.exceptions import ValidationError
+from app.responses import HTTPException, ValidationError, responses
 from app.settings import settings
 from app.utils.logger import setup_logger
 
