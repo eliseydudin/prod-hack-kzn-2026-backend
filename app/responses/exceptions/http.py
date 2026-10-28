@@ -20,6 +20,7 @@ class ErrorCode(PascalCaseEnum):
     CONFLICT = auto()
     GOOGLE_INTERACTION_FAILED = auto()
     VALIDATION_FAILED = auto()
+    USERNAME_IS_ALREADY_IN_USE = auto()
 
 
 @dataclass(kw_only=True, config={"alias_generator": to_camel})
@@ -79,7 +80,7 @@ class ServiceUnavailableError(HTTPException):
     status_code = 503
 
 
-@dataclass
+@dataclass(kw_only=True, config={"alias_generator": to_camel})
 class ValidationError(HTTPException):
     errors: Sequence[Any]
     status_code = 422
@@ -90,7 +91,7 @@ class ValidationError(HTTPException):
         return ValidationError(errors=validation_error.errors())
 
 
-@dataclass
+@dataclass(kw_only=True, config={"alias_generator": to_camel})
 class GoogleInteractionFailed(HTTPException):
     cause: FailureCause
     status_code = 400

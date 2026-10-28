@@ -7,8 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
 from starlette.responses import JSONResponse
 
-from app.api.impl.user import create_bootstrap_user
-from app.api.routers import admin_router, auth_router
+from app.admin.router import router as admin_router
+from app.auth.impl import create_bootstrap_user
+from app.auth.router import router as auth_router
 from app.database import get_session_ctx, setup_tables
 from app.models.status import Status
 from app.responses import HTTPException, ValidationError, responses

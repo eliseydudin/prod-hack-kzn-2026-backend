@@ -10,9 +10,10 @@ from app.models.base import (
     SnowflakeIdBase,
 )
 from app.models.types.extra import Extra
-from app.models.types.missing import MaybeMissing
 from app.models.types.pascal_case_enum import PascalCaseEnum
 from app.models.types.time import CreatedAt, Timestamp, UpdatedAt
+
+# from app.models.types.missing import MaybeMissing
 
 USERNAME_REGEX = r"^[a-zA-Z0-9._]*$"
 USERNAME_EXAMPLES = [
@@ -119,6 +120,8 @@ class RegisterUserRequest(UserBase):
 class CreateUserRequest(RegisterUserRequest):
     role: UserRole = UserRole.USER
 
+
+class AdminCreateUserRequest(CreateUserRequest):
     @model_validator(mode="after")
     def validate_user_role(self):
         if self.role == UserRole.BOOTSTRAP:
@@ -126,16 +129,16 @@ class CreateUserRequest(RegisterUserRequest):
         return self
 
 
-class EditUserRequest(Base):
-    username: MaybeMissing[str] = Field(
-        min_length=1,
-        max_length=32,
-        regex=USERNAME_REGEX,
-        schema_extra=Extra(
-            examples=USERNAME_EXAMPLES,
-            pattern=USERNAME_REGEX,
-        ),
-    )
+# class EditUserRequest(Base):
+#     username: MaybeMissing[str] = Field(
+#         min_length=1,
+#         max_length=32,
+#         regex=USERNAME_REGEX,
+#         schema_extra=Extra(
+#             examples=USERNAME_EXAMPLES,
+#             pattern=USERNAME_REGEX,
+#         ),
+#     )
 
 
 class UserPaginationResult(Base):

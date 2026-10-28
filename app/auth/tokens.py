@@ -4,7 +4,6 @@ import jwt
 from fastapi import Cookie, Depends, Response
 from fastapi.security.oauth2 import OAuth2PasswordBearer
 from pydantic import ValidationError
-from sqlmodel import select
 
 from app.database.connection import SessionDep
 from app.database.session import Session
@@ -14,6 +13,7 @@ from app.models.types.time import utc_now
 from app.models.user import UserRole, UserTable
 from app.responses import AuthorizationError, ForbiddenError, NotFoundError
 from app.settings import settings
+from app.users.crud import get_user_by_id
 
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/auth/login",
@@ -44,10 +44,9 @@ def decode_token[_Model: Base](token: str, model_type: type[_Model]) -> _Model:
 async def _get_current_user(session: Session, token: str):
     try:
         auth_token = decode_token(token, AuthToken)
-        query = select(UserTable).where(UserTable.id == auth_token.sub)
-        user = await session.scalar(query)
+        user = await get_user_by_id(session, auth_token.sub)
 
-        if not user or not user.enabled:
+        if not user:
             raise NotFoundError
 
         return user

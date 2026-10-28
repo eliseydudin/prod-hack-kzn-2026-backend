@@ -1,10 +1,10 @@
 from datetime import timedelta
 
-from app.api.impl.user import create_user
+from app.auth.hasher import check_password, hash_password
 from app.database import get_session_ctx
 from app.models.types.time import utc_now
 from app.models.user import CreateUserRequest, UserRole
-from app.utils.hasher import check_password
+from app.users import create_user
 
 
 async def test_create_user():
@@ -15,7 +15,7 @@ async def test_create_user():
     )
 
     async with get_session_ctx() as ctx:
-        user = await create_user(ctx, request)
+        user = await create_user(ctx, request, hash_password)
 
     assert user.username == "testuser"
     assert check_password(user.password or "", "password")

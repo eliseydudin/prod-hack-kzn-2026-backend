@@ -7,7 +7,7 @@ from httpx_oauth.clients.google import GoogleOAuth2
 from httpx_oauth.oauth2 import GetAccessTokenError
 from pydantic import ValidationError
 
-from app.api.google.models import GoogleProfile
+from app.auth.google.models import GoogleProfile
 from app.responses import GoogleInteractionFailed as HTTPGoogleInteractionFailed
 from app.responses.exceptions.google import FailureCause, GoogleInteractionFailed
 from app.settings import settings
