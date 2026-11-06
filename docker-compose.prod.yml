@@ -14,7 +14,6 @@ x-app: &app
     SEED_TEST_PASSWORD: ${SEED_TEST_PASSWORD:-}
     DATABASE__URL: postgresql+asyncpg://${POSTGRES_USER:?}:${POSTGRES_PASSWORD:?}@db:5432/${POSTGRES_DB:?}
     REDIS__URL: redis://redis:6379/0
-    AUTH__SECRET_KEY: ${AUTH__SECRET_KEY:?AUTH__SECRET_KEY is required}
 
     FORWARDED_ALLOW_IPS: "*"
 
