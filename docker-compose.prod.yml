@@ -10,10 +10,9 @@ x-app: &app
     LOG_JSON: "true"
     CORS_ORIGINS: ${CORS_ORIGINS:-[]}
 
-    SEED_TEST_USERS: ${SEED_TEST_USERS:-false}
-    SEED_TEST_PASSWORD: ${SEED_TEST_PASSWORD:-}
-    DATABASE__URL: postgresql+asyncpg://${POSTGRES_USER:?}:${POSTGRES_PASSWORD:?}@db:5432/${POSTGRES_DB:?}
-    REDIS__URL: redis://redis:6379/0
+    DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:?}:${POSTGRES_PASSWORD:?}@db:5432/${POSTGRES_DB:?}
+    JWT_TOKEN: ${JWT_TOKEN}
+    # REDIS__URL: redis://redis:6379/0
 
     FORWARDED_ALLOW_IPS: "*"
 
