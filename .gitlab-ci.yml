@@ -159,9 +159,6 @@ deploy:
       : "${POSTGRES_USER:?set POSTGRES_USER}" "${POSTGRES_DB:?set POSTGRES_DB}"
       : "${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}" "${JWT_TOKEN:?set JWT_TOKEN}"
       : "${DOMAIN:?set DOMAIN}"
-      case "$(printf '%s' "${SEED_TEST_USERS:-false}" | tr 'A-Z' 'a-z')" in
-        true|1|yes|y|on|t) : "${SEED_TEST_PASSWORD:?set SEED_TEST_PASSWORD}" ;;
-      esac
       printf "DATABASE_URL='%s'\nPOSTGRES_USER='%s'\nPOSTGRES_PASSWORD='%s'\nPOSTGRES_DB='%s'\nJWT_TOKEN='%s'\nCORS_ORIGINS='%s'\nDOMAIN='%s'\nCERTBOT_EMAIL='%s'\nSAGE__API_KEY='%s'\nSAGE__GROUP='%s'\n" \
         "postgresql+asyncpg://$POSTGRES_USER:$POSTGRES_PASSWORD@db:5432/$POSTGRES_DB" "$POSTGRES_USER" "$POSTGRES_PASSWORD" "$POSTGRES_DB" "$JWT_TOKEN" "${CORS_ORIGINS:-[]}" \
         "$DOMAIN" "${CERTBOT_EMAIL:-}" \
@@ -176,7 +173,7 @@ deploy:
       # The script arrives on stdin (`bash -s`): commands that read stdin would swallow the
       # rest of it and bash would exit 0 early, so detach them with -T and </dev/null.
       docker compose run --rm -T migrate </dev/null
-      docker compose up -d --wait api worker scheduler certbot nginx
+      docker compose up -d --wait api certbot nginx
       docker compose exec -T nginx sh -c 'nginx -t && nginx -s reload' </dev/null
       # Log shipping to Sage is auxiliary: no --wait, and its failure does not fail the deploy.
       # Recreated every time: compose does not notice changes inside the bind-mounted config.
