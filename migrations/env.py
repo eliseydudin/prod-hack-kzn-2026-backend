@@ -5,7 +5,7 @@ from alembic import context
 from sqlalchemy import Connection, pool
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from app.models.base import Base
+from app.models import Base
 from app.settings import settings
 
 config = context.config
@@ -36,9 +36,8 @@ def _configure(**kwargs: object) -> None:
 
 def run_migrations_offline() -> None:
     """`alembic upgrade head --sql`: render SQL for review without a database."""
-    _configure(
-        url=_database_url(), literal_binds=True, dialect_opts={"paramstyle": "named"}
-    )
+    url = _database_url()
+    _configure(url=url, literal_binds=True, dialect_opts={"paramstyle": "named"})
     with context.begin_transaction():
         context.run_migrations()
 

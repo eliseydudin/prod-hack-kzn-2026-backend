@@ -39,6 +39,7 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(
     lifespan=lifespan,
     generate_unique_id_function=generate_unique_name,
+    root_path="/api/v1",
 )
 app.include_router(auth_router)
 app.include_router(admin_router)
