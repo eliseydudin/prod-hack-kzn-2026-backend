@@ -182,7 +182,7 @@ services:
           "wget",
           "-qO-",
           "--no-check-certificate",
-          "https://127.0.0.1/health/live",
+          "https://127.0.0.1/health",
         ]
       interval: 5s
       timeout: 3s
