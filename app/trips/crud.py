@@ -1,6 +1,7 @@
 from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy import delete, desc, select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import raiseload
 
 from app.database.session import Session
 from app.models.trip import (
@@ -10,14 +11,17 @@ from app.models.trip import (
     TripTable,
     UpdateTripRequest,
 )
+from app.models.waypoint import WaypointTable
 from app.responses import ConflictError, NotFoundError, ValidationError
 
 
-async def _owned_trip(
+async def get_owned_trip(
     session: Session, owner_id: int, trip_id: int, *, lock: bool = False
 ) -> TripTable:
-    query = select(TripTable).where(
-        TripTable.id == trip_id, TripTable.owner_id == owner_id
+    query = (
+        select(TripTable)
+        .where(TripTable.id == trip_id, TripTable.owner_id == owner_id)
+        .options(raiseload("*"))
     )
     if lock:
         query = query.with_for_update(of=TripTable)
@@ -37,7 +41,7 @@ async def list_trips(session: Session, owner_id: int) -> list[Trip]:
 
 
 async def get_trip(session: Session, owner_id: int, trip_id: int) -> Trip:
-    return Trip.model_validate(await _owned_trip(session, owner_id, trip_id))
+    return Trip.model_validate(await get_owned_trip(session, owner_id, trip_id))
 
 
 async def create_trip(
@@ -53,7 +57,7 @@ async def create_trip(
 async def update_trip(
     session: Session, owner_id: int, trip_id: int, request: UpdateTripRequest
 ) -> Trip:
-    trip = await _owned_trip(session, owner_id, trip_id, lock=True)
+    trip = await get_owned_trip(session, owner_id, trip_id, lock=True)
     changes = request.model_dump(exclude_unset=True)
     try:
         TripBase.model_validate(trip, update=changes)
@@ -67,8 +71,13 @@ async def update_trip(
 
 
 async def delete_trip(session: Session, owner_id: int, trip_id: int) -> None:
-    trip = await _owned_trip(session, owner_id, trip_id, lock=True)
-    if trip.waypoints:
+    trip = await get_owned_trip(session, owner_id, trip_id, lock=True)
+    waypoint_key = await session.scalar(
+        select(WaypointTable.primary_key)
+        .where(WaypointTable.trip_id == trip.primary_key)
+        .limit(1)
+    )
+    if waypoint_key is not None:
         raise ConflictError(detail={"reason": "trip_has_waypoints"})
     try:
         await session.execute(

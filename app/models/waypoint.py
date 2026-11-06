@@ -1,7 +1,12 @@
+from typing import Annotated, ClassVar
+
+from pydantic import ConfigDict, StringConstraints
+from pydantic_core import MISSING
 from sqlmodel import Field, Relationship
 
 from app.models.base import Base, PrimaryKeyBase, SnowflakeIdBase
 from app.models.trip import TripTable
+from app.models.types.missing import MaybeMissing
 
 
 class WaypointBase(Base):
@@ -30,5 +35,20 @@ class WaypointTable(WaypointExtraBase, PrimaryKeyBase, table=True):
     )
 
 
-class Waypoint(WaypointBase):
+class Waypoint(WaypointExtraBase):
     pass
+
+
+class CreateWaypointRequest(WaypointBase):
+    model_config: ClassVar[ConfigDict] = {"extra": "forbid"}
+
+
+class UpdateWaypointRequest(Base):
+    model_config: ClassVar[ConfigDict] = {"extra": "forbid"}
+
+    latitude: MaybeMissing[float] = Field(default=MISSING, ge=-90.0, le=90.0)
+    longitude: MaybeMissing[float] = Field(default=MISSING, ge=-180.0, le=180.0)
+    name: MaybeMissing[str] = Field(default=MISSING, min_length=1, max_length=128)
+    description: MaybeMissing[
+        Annotated[str, StringConstraints(min_length=1, max_length=512)] | None
+    ]
