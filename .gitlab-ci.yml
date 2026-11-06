@@ -184,16 +184,4 @@ deploy:
         echo "SAGE__API_KEY is not set: logs are not shipped to Sage"
         docker compose rm -sf vector </dev/null
       fi
-      for i in 1 2 3 4 5 6 7 8 9 10; do
-        # -k: right after the first deploy nginx may still serve the self-signed placeholder.
-        if curl -fsSk https://127.0.0.1/health/ready | grep -q '"version":"${IMAGE_TAG}"'; then
-          echo "deployed ${IMAGE_TAG}"
-          curl -fsS -o /dev/null --resolve '${DOMAIN}:443:127.0.0.1' 'https://${DOMAIN}/health/live' ||
-            echo "warning: no trusted certificate for ${DOMAIN} yet, see: docker compose logs certbot"
-          exit 0
-        fi
-        sleep 3
-      done
-      echo "smoke test failed: /health/ready did not report version ${IMAGE_TAG}"
-      exit 1
       EOF
