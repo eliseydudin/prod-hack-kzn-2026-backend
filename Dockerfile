@@ -48,4 +48,4 @@ HEALTHCHECK --interval=1m30s --timeout=10s --start-period=40s \
 
 WORKDIR /app
 
-CMD ["fastapi", "run", "--host", "0.0.0.0", "--port", "80", "app/main.py"]
+CMD ["fastapi", "run", "--host", "0.0.0.0", "--port", "8000", "app/main.py"]
