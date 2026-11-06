@@ -44,7 +44,7 @@ app.include_router(auth_router)
 app.include_router(admin_router)
 
 ALLOWED_ORIGINS = ["http://localhost:5173", "http://localhost:8000"]
-if domain := settings.base_domain:
+if domain := settings.domain:
     ALLOWED_ORIGINS += [
         f"http://{domain}",
         f"https://{domain}",
