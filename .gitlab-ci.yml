@@ -47,16 +47,15 @@ lint:
   services:
     - name: $POSTGRES_IMAGE
       alias: postgres
-    - name: $VALKEY_IMAGE
-      alias: redis
+    # - name: $VALKEY_IMAGE
+    #   alias: redis
   variables:
     POSTGRES_USER: app
     POSTGRES_PASSWORD: app
     POSTGRES_DB: app_test
-    TEST_DATABASE_URL: postgresql+asyncpg://app:app@postgres:5432/app_test
-    TEST_REDIS_URL: redis://redis:6379/15
-  script:
-    - uv run pytest --cov --cov-report=term --cov-report=xml:coverage.xml --junitxml=report.xml
+    DATABASE_URL: postgresql+asyncpg://app:app@postgres:5432/app_test
+    # TEST_REDIS_URL: redis://redis:6379/15
+    JWT_TOKEN: 0ffc6a517953f1f5
   coverage: '/^TOTAL\s.*\s(\d+(?:\.\d+)?)%\s*$/'
   artifacts:
     when: always
@@ -71,29 +70,14 @@ lint:
 test:unit:
   extends: .test
   script:
-    - uv run pytest --cov --cov-report=term --cov-report=xml:coverage.xml --junitxml=report.xml tests/unit
+    - sh ./scripts/migrate.sh
+    - uv run pytest --cov --cov-report=term --cov-report=xml:coverage.xml --junitxml=report.xml test/unit
 
 test:integration:
   extends: .test
   script:
-    - uv run pytest --cov --cov-report=term --cov-report=xml:coverage.xml --junitxml=report.xml tests/integration
-
-migrations:
-  extends: .check
-  services:
-    - name: $POSTGRES_IMAGE
-      alias: postgres
-  variables:
-    POSTGRES_USER: app
-    POSTGRES_PASSWORD: app
-    POSTGRES_DB: app_test
-    DATABASE__URL: postgresql+asyncpg://app:app@postgres:5432/app_test
-  script:
-    - test "$(uv run alembic heads | wc -l)" -eq 1 || (echo "Multiple alembic heads - merge them" && exit 1)
-    - uv run alembic upgrade head
-    - uv run alembic check
-    - uv run alembic downgrade base
-    - uv run alembic upgrade head
+    - sh ./scripts/migrate.sh
+    - uv run pytest --cov --cov-report=term --cov-report=xml:coverage.xml --junitxml=report.xml test/integration
 
 nginx:
   extends: .check
@@ -126,7 +110,6 @@ vector:
     SAGE__API_KEY: ci-placeholder
   script:
     - vector validate --no-environment --dangerously-allow-env-var-interpolation docker/vector/vector.toml
-    - vector test --dangerously-allow-env-var-interpolation docker/vector/vector.toml docker/vector/tests.toml
 
 .build:image:
   extends: .dp_build

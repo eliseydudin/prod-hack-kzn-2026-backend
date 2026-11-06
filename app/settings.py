@@ -18,10 +18,6 @@ class Settings(BaseSettings):
     bootstrap_username: str | None = None
     bootstrap_password: str | None = None
 
-    google_client_id: str
-    google_client_secret: str
-    google_callback_url: str
-
     machine_id: int = Field(
         default_factory=lambda: randint(0, 2**10 - 1),
         ge=0,

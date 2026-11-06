@@ -2,13 +2,10 @@ from collections.abc import Callable
 
 from sqlmodel import col, select
 
-from app.auth.google.models import GoogleProfile
 from app.database import Session
 from app.models.types.snowflake_id import SnowflakeId
 from app.models.user import (
     CreateUserRequest,
-    UserIdentitySource,
-    UserIdentityTable,
     UserRole,
     UserTable,
 )
@@ -91,38 +88,3 @@ async def list_users(
         result = result[:-1]
 
     return is_at_end, result
-
-
-async def create_user_from_google_profile(
-    session: Session,
-    profile: GoogleProfile,
-):
-    new_username = profile.email.split("@")[0]
-    new_username = new_username[:32]
-
-    identity = UserIdentityTable(
-        source=UserIdentitySource.GOOGLE,
-        identifier=profile.email,
-    )
-    user = UserTable(
-        username=new_username,
-        password=None,
-        identity=identity,
-    )
-
-    session.add(identity)
-    return await add_or_update_user(session, user)
-
-
-async def get_user_from_google_profile(session: Session, profile: GoogleProfile):
-    query = (
-        select(UserTable)
-        .join(UserIdentityTable)
-        .where(
-            UserTable.identity is not None,
-            UserIdentityTable.source == UserIdentitySource.GOOGLE,
-            UserIdentityTable.identifier == profile.email,
-        )
-    )
-
-    return await session.scalar(query)

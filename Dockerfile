@@ -2,42 +2,44 @@ FROM alpine:3.24 AS builder
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 ENV UV_COMPILE_BYTECODE=1 \
-    UV_LINK_MODE=copy \
-    UV_NO_DEV=1 \
-    UV_PYTHON_INSTALL_DIR=/python \
-    UV_PYTHON_PREFERENCE=only-managed 
+  UV_LINK_MODE=copy \
+  UV_NO_DEV=1 \
+  UV_PYTHON_INSTALL_DIR=/python \
+  UV_PYTHON_PREFERENCE=only-managed 
 
 RUN uv python install 3.14
 
 WORKDIR /app
 
+COPY pyproject.toml uv.lock ./
+
 RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --locked --no-install-project
-    
+  --mount=type=bind,source=uv.lock,target=uv.lock \
+  --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+  uv sync --locked --no-install-project
+
 COPY . /app
 
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked
+  uv sync --locked
 
-FROM alpine:3.24
+FROM alpine:3.24 AS production
 
 RUN --mount=type=cache,target=/var/cache/apk \
-	  apk add curl bash
+  apk add curl bash
 
 RUN addgroup --system --gid 1001 nonroot
 RUN adduser --system \ 
-    -G nonroot \ 
-    -u 1001 \
-    -s /bin/bash \
-    nonroot
+  -G nonroot \ 
+  -u 1001 \
+  -s /bin/bash \
+  nonroot
 
 COPY --from=builder /python /python
 COPY --from=builder --chown=nonroot:nonroot /app /app
 
 ENV PATH="/app/.venv/bin:$PATH" \
-    PYTHONUNBUFFERED=1
+  PYTHONUNBUFFERED=1
 
 USER nonroot
 
