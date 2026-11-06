@@ -1,47 +1,221 @@
-stages:
-  - lint
-  - test
-  # - build
+include:
+  - local: .gitlab/ci/rules.yml
+  - local: .gitlab/ci/spirit.yml
+  - local: .gitlab/ci/build.yml
+  - local: .gitlab/ci/teleport.yml
+  - local: .gitlab/ci/configure-docker.yml
 
-lint:
-  stage: lint
-  image: ghcr.io/astral-sh/ruff:0.16.10-alpine
-  before_script:
-    - ruff version
-  script:
-    - ruff check --output-format=gitlab --output-file=code-quality-report.json || true
-  artifacts:
-    reports:
-      codequality: code-quality-report.json
+stages:
+  - check
+  - build
+  - deploy
 
 variables:
-  POSTGRES_DB: testdb
-  POSTGRES_USER: postgres
-  POSTGRES_PASSWORD: postgres
+  IMAGE_REPO: ${DOCKER_ARTIFACTORY_REGISTRY}/${CI_PROJECT_ROOT_NAMESPACE}/${CI_PROJECT_NAME}
+  POSTGRES_IMAGE: postgres:18.6-alpine3.24
+  VALKEY_IMAGE: valkey/valkey:9.1.2-alpine3.24
+  NGINX_IMAGE: nginx:1.30.5-alpine3.24
+  VECTOR_IMAGE: timberio/vector:0.58.0-alpine
 
-.test_base:
-  stage: test
-  image: python:3.14-slim
+.check:
+  stage: check
+  interruptible: true
+  image: python:3.14.8-slim-trixie
+  variables:
+    UV_CACHE_DIR: $CI_PROJECT_DIR/.uv-cache
+    UV_LINK_MODE: copy
+    UV_PYTHON_DOWNLOADS: never
+    PIP_DISABLE_PIP_VERSION_CHECK: "1"
   cache:
     key:
-      prefix: uv
-      files:
-        - ./uv.lock
-    paths:
-      - .uv-cache/
+      files: [uv.lock]
+    paths: [.uv-cache]
   before_script:
-    - pip install uv --quiet
-    - uv sync --frozen --quiet
-    - cp .env.example .env
+    - pip install --no-cache-dir uv==0.13.0
+    - uv sync --frozen
+
+lint:
+  extends: .check
+  script:
+    - uv run ruff check . --output-format=gitlab --output-file=code-quality-report.json
+  artifacts:
+    reports:
+      codequality: $CI_PROJECT_DIR/code-quality-report.json
+
+.test:
+  extends: .check
+  services:
+    - name: $POSTGRES_IMAGE
+      alias: postgres
+    - name: $VALKEY_IMAGE
+      alias: redis
+  variables:
+    POSTGRES_USER: app
+    POSTGRES_PASSWORD: app
+    POSTGRES_DB: app_test
+    TEST_DATABASE_URL: postgresql+asyncpg://app:app@postgres:5432/app_test
+    TEST_REDIS_URL: redis://redis:6379/15
+  script:
+    - uv run pytest --cov --cov-report=term --cov-report=xml:coverage.xml --junitxml=report.xml
+  coverage: '/^TOTAL\s.*\s(\d+(?:\.\d+)?)%\s*$/'
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths: [coverage.xml, report.xml]
+    reports:
+      junit: report.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
 
 test:unit:
-  extends: .test_base
+  extends: .test
   script:
-    - uv run pytest test/unit
+    - uv run pytest --cov --cov-report=term --cov-report=xml:coverage.xml --junitxml=report.xml tests/unit
 
-# test:integration:
-#   services:
-#     - postgres:16
-#   extends: .test_base
-#   script:
-#     - uv run pytest test/integration
+test:integration:
+  extends: .test
+  script:
+    - uv run pytest --cov --cov-report=term --cov-report=xml:coverage.xml --junitxml=report.xml tests/integration
+
+migrations:
+  extends: .check
+  services:
+    - name: $POSTGRES_IMAGE
+      alias: postgres
+  variables:
+    POSTGRES_USER: app
+    POSTGRES_PASSWORD: app
+    POSTGRES_DB: app_test
+    DATABASE__URL: postgresql+asyncpg://app:app@postgres:5432/app_test
+  script:
+    - test "$(uv run alembic heads | wc -l)" -eq 1 || (echo "Multiple alembic heads - merge them" && exit 1)
+    - uv run alembic upgrade head
+    - uv run alembic check
+    - uv run alembic downgrade base
+    - uv run alembic upgrade head
+
+nginx:
+  extends: .check
+  image:
+    name: $NGINX_IMAGE
+    entrypoint: [""]
+  cache: []
+  before_script: []
+  script:
+    # The frontend upstream is resolved at config load; compose provides this name via extra_hosts.
+    - echo "127.0.0.1 host.docker.internal" >> /etc/hosts
+    - nginx -t -c "$CI_PROJECT_DIR/docker/nginx/nginx.conf"
+    # The prod config needs a certificate to load: a throwaway one, like certbot's placeholder.
+    - apk add --no-cache openssl
+    - mkdir -p /etc/nginx/tls
+    - openssl req -x509 -nodes -newkey rsa:2048 -days 1 -subj /CN=ci
+      -keyout /etc/nginx/tls/privkey.pem -out /etc/nginx/tls/fullchain.pem
+    - nginx -t -c "$CI_PROJECT_DIR/docker/nginx/nginx.prod.conf"
+
+# Log shipping to Sage (docs/adr/0017-logs-in-sage.md): config loads and the transform
+# produces the fields Sage requires. A placeholder key: the real one is needed only on the VM.
+vector:
+  extends: .check
+  image:
+    name: $VECTOR_IMAGE
+    entrypoint: [""]
+  cache: []
+  before_script: []
+  variables:
+    SAGE__API_KEY: ci-placeholder
+  script:
+    - vector validate --no-environment --dangerously-allow-env-var-interpolation docker/vector/vector.toml
+    - vector test --dangerously-allow-env-var-interpolation docker/vector/vector.toml docker/vector/tests.toml
+
+.build:image:
+  extends: .dp_build
+  variables:
+    IMAGE_NAME: ${IMAGE_REPO}:${CI_COMMIT_SHORT_SHA}
+    KANIKO_ARGS: --build-arg APP_VERSION=${CI_COMMIT_SHORT_SHA}
+
+build:mr:
+  extends:
+    - .build:image
+    - .rules-merge
+  variables:
+    KANIKO_CACHE: "false"
+    KANIKO_ARGS: --build-arg APP_VERSION=${CI_COMMIT_SHORT_SHA} --no-push
+
+build:image:
+  extends:
+    - .build:image
+    - .rules-master
+  before_script:
+    - test -n "$DOCKER_ARTIFACTORY_REGISTRY" || { echo "DOCKER_ARTIFACTORY_REGISTRY is empty - set it in CI variables"; exit 1; }
+    - !reference [.dp_build, before_script]
+
+deploy:
+  extends:
+    - .configure_docker
+    - .rules-master-manual
+  stage: deploy
+  needs: [build:image]
+  resource_group: production
+  environment:
+    name: production
+  variables:
+    IMAGE_TAG: ${CI_COMMIT_SHORT_SHA}
+  script:
+    - !reference [.configure_docker, script]
+    - |
+      tsh ssh "${DEPLOY_SSH_USER}@${DEPLOY_VM}" "sudo install -d -o '${DEPLOY_SSH_USER}' '${DEPLOY_DIR}' '${DEPLOY_DIR}/nginx' '${DEPLOY_DIR}/certbot' '${DEPLOY_DIR}/vector'"
+      tsh scp docker-compose.prod.yml "${DEPLOY_SSH_USER}@${DEPLOY_VM}:${DEPLOY_DIR}/docker-compose.yml"
+      tsh scp docker/nginx/nginx.prod.conf docker/nginx/http.conf docker/nginx/routes.conf docker/nginx/tls-entrypoint.sh \
+        "${DEPLOY_SSH_USER}@${DEPLOY_VM}:${DEPLOY_DIR}/nginx/"
+      tsh scp docker/certbot/certbot.sh "${DEPLOY_SSH_USER}@${DEPLOY_VM}:${DEPLOY_DIR}/certbot/certbot.sh"
+      tsh scp docker/vector/vector.toml "${DEPLOY_SSH_USER}@${DEPLOY_VM}:${DEPLOY_DIR}/vector/vector.toml"
+    # App secrets live in CI variables; the VM gets a 600 .env (rewritten on every deploy) so
+    # that manual `docker compose` calls on the server work. Values travel over stdin only.
+    - |
+      : "${POSTGRES_USER:?set POSTGRES_USER}" "${POSTGRES_DB:?set POSTGRES_DB}"
+      : "${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}" "${AUTH__SECRET_KEY:?set AUTH__SECRET_KEY}"
+      : "${DOMAIN:?set DOMAIN}"
+      case "$(printf '%s' "${SEED_TEST_USERS:-false}" | tr 'A-Z' 'a-z')" in
+        true|1|yes|y|on|t) : "${SEED_TEST_PASSWORD:?set SEED_TEST_PASSWORD}" ;;
+      esac
+      printf "POSTGRES_USER='%s'\nPOSTGRES_PASSWORD='%s'\nPOSTGRES_DB='%s'\nAUTH__SECRET_KEY='%s'\nCORS_ORIGINS='%s'\nDOMAIN='%s'\nCERTBOT_EMAIL='%s'\nPUSH__VAPID_SUBJECT='%s'\nLLM__API_KEY='%s'\nLLM__SCAN_MODEL='%s'\nSAGE__API_KEY='%s'\nSAGE__GROUP='%s'\nSEED_TEST_USERS='%s'\nSEED_TEST_PASSWORD='%s'\n" \
+        "$POSTGRES_USER" "$POSTGRES_PASSWORD" "$POSTGRES_DB" "$AUTH__SECRET_KEY" "${CORS_ORIGINS:-[]}" \
+        "$DOMAIN" "${CERTBOT_EMAIL:-}" "${PUSH__VAPID_SUBJECT:-}" \
+        "${LLM__API_KEY:-}" "${LLM__SCAN_MODEL:-openrouter/claude-haiku-5-5}" \
+        "${SAGE__API_KEY:-}" "${SAGE__GROUP:-hack-led-12}" \
+        "${SEED_TEST_USERS:-false}" "${SEED_TEST_PASSWORD:-}" |
+        tsh ssh "${DEPLOY_SSH_USER}@${DEPLOY_VM}" "umask 077 && cat > '${DEPLOY_DIR}/.env.new' && mv '${DEPLOY_DIR}/.env.new' '${DEPLOY_DIR}/.env'"
+    - |
+      tsh ssh "${DEPLOY_SSH_USER}@${DEPLOY_VM}" "sudo bash -s" <<EOF
+      set -euo pipefail
+      cd '${DEPLOY_DIR}'
+      export DOCKER_CONFIG='${DEPLOY_DIR}/.docker' IMAGE='${IMAGE_REPO}' IMAGE_TAG='${IMAGE_TAG}'
+      docker compose pull api
+      # The script arrives on stdin (`bash -s`): commands that read stdin would swallow the
+      # rest of it and bash would exit 0 early, so detach them with -T and </dev/null.
+      docker compose run --rm -T migrate </dev/null
+      docker compose up -d --wait api worker scheduler certbot nginx
+      docker compose exec -T nginx sh -c 'nginx -t && nginx -s reload' </dev/null
+      # Log shipping to Sage is auxiliary: no --wait, and its failure does not fail the deploy.
+      # Recreated every time: compose does not notice changes inside the bind-mounted config.
+      if [ -n '${SAGE__API_KEY:+set}' ]; then
+        docker compose up -d --force-recreate vector </dev/null ||
+          echo "warning: vector did not start, logs are not shipped to Sage: docker compose logs vector"
+      else
+        echo "SAGE__API_KEY is not set: logs are not shipped to Sage"
+        docker compose rm -sf vector </dev/null
+      fi
+      for i in 1 2 3 4 5 6 7 8 9 10; do
+        # -k: right after the first deploy nginx may still serve the self-signed placeholder.
+        if curl -fsSk https://127.0.0.1/health/ready | grep -q '"version":"${IMAGE_TAG}"'; then
+          echo "deployed ${IMAGE_TAG}"
+          curl -fsS -o /dev/null --resolve '${DOMAIN}:443:127.0.0.1' 'https://${DOMAIN}/health/live' ||
+            echo "warning: no trusted certificate for ${DOMAIN} yet, see: docker compose logs certbot"
+          exit 0
+        fi
+        sleep 3
+      done
+      echo "smoke test failed: /health/ready did not report version ${IMAGE_TAG}"
+      exit 1
+      EOF

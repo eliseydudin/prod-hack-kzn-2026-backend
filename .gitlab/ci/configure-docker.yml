@@ -1,0 +1,21 @@
+# Based on pipelines/pipelines (jobs/configure-docker.yaml): registry auth for `docker pull`
+# on the VM over Teleport. Requires .teleport_auth (teleport.yml), DEPLOY_SSH_USER,
+# DEPLOY_VM, DEPLOY_DIR, SPIRIT_DOCKER_SA_KEY. Rules are set by the consuming job.
+# Deviation from upstream: upstream installs dp on the VM and runs `dp auth
+# configure-docker`, whose credential helper sends no credentials to
+# registry.spirit.t-education.com (pull gets 401). Instead the CI job writes a docker
+# config with the Spirit IAM token (`dp auth configure-kaniko`, as in .dp_build) and
+# copies it to ${DEPLOY_DIR}/.docker; deploy scripts run docker with DOCKER_CONFIG
+# pointing there. The service account key never leaves CI.
+.configure_docker:
+  stage: deploy
+  image: registry.spirit.t-education.com/cicd-images/tsh-18:latest
+  extends: .teleport_auth
+  script:
+    - |
+      : "${DEPLOY_DIR:?set DEPLOY_DIR}"
+      mkdir -p "$CI_PROJECT_DIR/.docker-vm"
+      dp auth configure-kaniko --config-path "$CI_PROJECT_DIR/.docker-vm/config.json"
+      tsh ssh "${DEPLOY_SSH_USER}@${DEPLOY_VM}" "sudo install -d -m 700 '${DEPLOY_DIR}/.docker' && sudo tee '${DEPLOY_DIR}/.docker/config.json.new' >/dev/null && sudo chmod 600 '${DEPLOY_DIR}/.docker/config.json.new' && sudo mv '${DEPLOY_DIR}/.docker/config.json.new' '${DEPLOY_DIR}/.docker/config.json'" \
+        < "$CI_PROJECT_DIR/.docker-vm/config.json"
+      rm -rf "$CI_PROJECT_DIR/.docker-vm"

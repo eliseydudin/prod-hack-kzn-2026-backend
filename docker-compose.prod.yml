@@ -1,0 +1,215 @@
+x-sage-logs: &sage-logs
+  sage.logs: "true"
+
+x-app: &app
+  image: ${IMAGE:?IMAGE is required}:${IMAGE_TAG:?IMAGE_TAG is required}
+  labels: *sage-logs
+  environment: &app-environment
+    ENV: prod
+    APP_VERSION: ${IMAGE_TAG}
+    LOG_JSON: "true"
+    CORS_ORIGINS: ${CORS_ORIGINS:-[]}
+
+    SEED_TEST_USERS: ${SEED_TEST_USERS:-false}
+    SEED_TEST_PASSWORD: ${SEED_TEST_PASSWORD:-}
+    DATABASE__URL: postgresql+asyncpg://${POSTGRES_USER:?}:${POSTGRES_PASSWORD:?}@db:5432/${POSTGRES_DB:?}
+    REDIS__URL: redis://redis:6379/0
+    AUTH__SECRET_KEY: ${AUTH__SECRET_KEY:?AUTH__SECRET_KEY is required}
+
+    FORWARDED_ALLOW_IPS: "*"
+
+services:
+  db:
+    image: postgres:18.6-alpine3.24
+
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: ${POSTGRES_DB:?}
+    volumes:
+      - pg-data:/var/lib/postgresql
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: valkey/valkey:9.1.2-alpine3.24
+    labels: *sage-logs
+    command:
+      [
+        "valkey-server",
+        "--maxmemory",
+        "256mb",
+        "--maxmemory-policy",
+        "allkeys-lru",
+      ]
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  api:
+    <<: *app
+    environment:
+      <<: *app-environment
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # worker:
+  #   <<: *app
+  #   command:
+  #     [
+  #       "taskiq",
+  #       "worker",
+  #       "app.worker.entry:broker",
+  #       "--no-configure-logging",
+  #       "--workers",
+  #       "1",
+  #       "--wait-tasks-timeout",
+  #       "30",
+  #     ]
+  #   # Longer than --wait-tasks-timeout: Docker's default 10 s would cut the running task.
+  #   stop_grace_period: 35s
+  #   environment:
+  #     <<: *app-environment
+  #     PUSH__VAPID_KEY_FILE: /var/lib/app/vapid/private_key.pem
+  #     # Contact for push services: by default the site itself.
+  #     PUSH__VAPID_SUBJECT: ${PUSH__VAPID_SUBJECT:-https://${DOMAIN:?DOMAIN is required}}
+  #   volumes:
+  #     - vapid:/var/lib/app/vapid
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #   healthcheck:
+  #     # Touched on start and after every successful run (every 15 s): stale means no
+  #     # deliveries, whether the worker, the scheduler, Redis or Postgres is the cause.
+  #     test:
+  #       [
+  #         "CMD",
+  #         "python",
+  #         "-c",
+  #         "import os, sys, time; sys.exit(time.time() - os.path.getmtime('/tmp/worker-heartbeat') > 60)",
+  #       ]
+  #     interval: 15s
+  #     timeout: 3s
+  #     start_period: 20s
+  #     retries: 3
+  #   restart: unless-stopped
+
+  # Puts a wake-up message for the worker into Redis every 15 s. Exactly one is
+  # enough; a second one would only cause empty runs.
+  # scheduler:
+  #   <<: *app
+  #   command:
+  #     [
+  #       "taskiq",
+  #       "scheduler",
+  #       "app.worker.entry:scheduler",
+  #       "--no-configure-logging",
+  #     ]
+  #   # The image's HEALTHCHECK probes the api's HTTP port; the scheduler has none. If
+  #   # it dies, the container restarts; stalled deliveries show up in the worker's health.
+  #   healthcheck:
+  #     disable: true
+  #   depends_on:
+  #     redis:
+  #       condition: service_healthy
+  #   restart: unless-stopped
+
+  certbot:
+    image: certbot/certbot:v5.8.0
+    labels: *sage-logs
+    entrypoint: ["/bin/sh", "/opt/certbot.sh"]
+    init: true
+    environment:
+      DOMAIN: ${DOMAIN:?DOMAIN is required}
+      CERTBOT_EMAIL: ${CERTBOT_EMAIL:-}
+    volumes:
+      - ./certbot/certbot.sh:/opt/certbot.sh:ro
+      - letsencrypt:/etc/letsencrypt
+      - acme-webroot:/var/www/certbot
+      - tls:/tls
+    healthcheck:
+      test: ["CMD", "test", "-s", "/tls/fullchain.pem"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.30.5-alpine3.24
+    labels: *sage-logs
+    entrypoint: ["/bin/sh", "/etc/nginx/tls-entrypoint.sh"]
+    ports: ["80:80", "443:443"]
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    volumes:
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/http.conf:/etc/nginx/http.conf:ro
+      - ./nginx/routes.conf:/etc/nginx/routes.conf:ro
+      - ./nginx/tls-entrypoint.sh:/etc/nginx/tls-entrypoint.sh:ro
+      - acme-webroot:/var/www/certbot:ro
+      - tls:/etc/nginx/tls:ro
+    depends_on:
+      api:
+        condition: service_healthy
+      certbot:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "-qO-",
+          "--no-check-certificate",
+          "https://127.0.0.1/health/live",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  vector:
+    image: timberio/vector:0.58.0-alpine
+    command:
+      [
+        "--config",
+        "/etc/vector/vector.toml",
+        "--dangerously-allow-env-var-interpolation",
+      ]
+    environment:
+      SAGE__API_KEY: ${SAGE__API_KEY:-}
+      SAGE__GROUP: ${SAGE__GROUP:-hack-led-12}
+      SAGE__ENV: prod
+    volumes:
+      - ./vector/vector.toml:/etc/vector/vector.toml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - vector-data:/var/lib/vector
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8686/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  pg-data:
+  letsencrypt: # certbot account and certificates: keep it, re-issuing is rate-limited
+  acme-webroot:
+  tls:
+  vector-data: # Vector's checkpoints and buffers, safe to lose
+  # vapid: # the VAPID key pair of the worker: losing it breaks every push subscription
