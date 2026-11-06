@@ -21,3 +21,6 @@ wheels/
 
 # Local Gitlab CI
 .gitlab-ci-local/
+
+# OS variables
+.DS_Store
