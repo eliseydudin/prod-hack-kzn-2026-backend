@@ -1,3 +1,17 @@
 @startuml
 
+entity User {
+	* primary_key <<generated>>
+	* id <<snowflake>>
+	--
+	identity_id
+	--
+	* username
+	password <<hash>>
+	* role
+	* enabled <<boolean>>
+	* created_at <<timestamptz>>
+	* updated_at <<timestamptz>>
+}
+
 @enduml
