@@ -44,7 +44,7 @@ ENV PATH="/app/.venv/bin:$PATH" \
 USER nonroot
 
 HEALTHCHECK --interval=1m30s --timeout=10s --start-period=40s \
-  CMD curl -fsS http://localhost/health || exit 1
+  CMD curl -fsS http://localhost/health:8000 || exit 1
 
 WORKDIR /app
 
