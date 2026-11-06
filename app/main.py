@@ -14,6 +14,7 @@ from app.database import get_session_ctx, setup_tables
 from app.models.status import Status
 from app.responses import HTTPException, ValidationError, responses
 from app.settings import settings
+from app.trips.router import router as trips_router
 from app.utils.logger import setup_logger
 
 logger = getLogger("app")
@@ -43,8 +44,13 @@ app = FastAPI(
 )
 app.include_router(auth_router)
 app.include_router(admin_router)
+app.include_router(trips_router)
 
-ALLOWED_ORIGINS = ["http://localhost:5173", "http://localhost:8000"]
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://localhost:8000",
+]
 if domain := settings.domain:
     ALLOWED_ORIGINS += [
         f"http://{domain}",

@@ -1,7 +1,7 @@
 from sqlmodel import Field, Relationship
 
 from app.models.base import Base, PrimaryKeyBase, SnowflakeIdBase
-from app.models.journey import JourneyTable
+from app.models.trip import TripTable
 
 
 class WaypointBase(Base):
@@ -20,11 +20,11 @@ class WaypointExtraBase(WaypointBase, SnowflakeIdBase):
 
 
 class WaypointTable(WaypointExtraBase, PrimaryKeyBase, table=True):
-    journey_id: int | None = Field(
+    trip_id: int | None = Field(
         default=None,
-        foreign_key="journey.primary_key",
+        foreign_key="trip.primary_key",
     )
-    journey: JourneyTable | None = Relationship(
+    trip: TripTable | None = Relationship(
         back_populates="waypoints",
         sa_relationship_kwargs={"lazy": "selectin"},
     )

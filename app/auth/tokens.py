@@ -16,7 +16,7 @@ from app.settings import settings
 from app.users.crud import get_user_by_id
 
 oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl="/auth/login",
+    tokenUrl="auth/login",
     refreshUrl="/auth/refresh",
     auto_error=False,
 )
