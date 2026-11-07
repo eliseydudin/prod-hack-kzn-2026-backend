@@ -22,21 +22,21 @@ EventId = Annotated[SnowflakeId, Path(alias="eventId", gt=0)]
 async def post_event(
     trip_id: TripId, request: CreateEventRequest, session: SessionDep, user: CurrentUser
 ) -> Event:
-    return await crud.create_event(session, user.primary_key, trip_id, request)
+    return await crud.create_event(session, user, trip_id, request)
 
 
 @router.get("", responses=responses(AuthorizationError, NotFoundError))
 async def get_events(
     trip_id: TripId, session: SessionDep, user: CurrentUser
 ) -> list[Event]:
-    return await crud.list_events(session, user.primary_key, trip_id)
+    return await crud.list_events(session, user, trip_id)
 
 
 @router.get("/{eventId}", responses=responses(AuthorizationError, NotFoundError))
 async def get_event(
     trip_id: TripId, event_id: EventId, session: SessionDep, user: CurrentUser
 ) -> Event:
-    return await crud.get_event(session, user.primary_key, trip_id, event_id)
+    return await crud.get_event(session, user, trip_id, event_id)
 
 
 @router.patch(
@@ -50,9 +50,7 @@ async def patch_event(
     session: SessionDep,
     user: CurrentUser,
 ) -> Event:
-    return await crud.update_event(
-        session, user.primary_key, trip_id, event_id, request
-    )
+    return await crud.update_event(session, user, trip_id, event_id, request)
 
 
 @router.delete(
@@ -63,4 +61,4 @@ async def patch_event(
 async def remove_event(
     trip_id: TripId, event_id: EventId, session: SessionDep, user: CurrentUser
 ) -> None:
-    await crud.delete_event(session, user.primary_key, trip_id, event_id)
+    await crud.delete_event(session, user, trip_id, event_id)

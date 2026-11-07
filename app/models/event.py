@@ -14,6 +14,7 @@ from pydantic_core import MISSING
 from sqlmodel import Field, Relationship, String, Text
 
 from app.models.base import Base, PrimaryKeyBase, SnowflakeIdBase
+from app.models.trip import TripTable
 from app.models.types.missing import MaybeMissing
 from app.models.types.snowflake_id import SnowflakeId
 from app.models.waypoint import WaypointTable
@@ -63,16 +64,19 @@ class EventExtraBase(EventBase, SnowflakeIdBase):
 
 
 class EventTable(EventExtraBase, PrimaryKeyBase, table=True):
-    trip_id: int = Field(foreign_key="trip.primary_key")
+    trip_id: int | None = Field(
+        default=None, foreign_key="trip.primary_key", nullable=False
+    )
     waypoint_primary_key: int | None = Field(
         default=None, foreign_key="waypoint.primary_key", ondelete="SET NULL"
     )
+    trip: TripTable | None = Relationship()
     waypoint: WaypointTable | None = Relationship(
         sa_relationship_kwargs={"lazy": "selectin"},
     )
 
     @property
-    def waypoint_id(self) -> int | None:
+    def waypoint_id(self) -> SnowflakeId | None:
         return self.waypoint.id if self.waypoint is not None else None
 
 

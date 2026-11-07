@@ -14,7 +14,7 @@ router = APIRouter(prefix="/trips", tags=["trips"])
 
 @router.get("", response_model=list[Trip], responses=responses(AuthorizationError))
 async def get_trips(session: SessionDep, user: CurrentUser) -> list[Trip]:
-    return await list_trips(session, user.primary_key)
+    return await list_trips(session, user)
 
 
 @router.post(
@@ -28,7 +28,7 @@ async def post_trip(
     session: SessionDep,
     user: CurrentUser,
 ) -> Trip:
-    return await create_trip(session, user.primary_key, request)
+    return await create_trip(session, user, request)
 
 
 @router.get(
@@ -41,7 +41,7 @@ async def get_trip_by_id(
     session: SessionDep,
     user: CurrentUser,
 ) -> Trip:
-    return await get_trip(session, user.primary_key, trip_id)
+    return await get_trip(session, user, trip_id)
 
 
 @router.patch(
@@ -55,7 +55,7 @@ async def patch_trip(
     session: SessionDep,
     user: CurrentUser,
 ) -> Trip:
-    return await update_trip(session, user.primary_key, trip_id, request)
+    return await update_trip(session, user, trip_id, request)
 
 
 @router.delete(
@@ -68,4 +68,4 @@ async def remove_trip(
     session: SessionDep,
     user: CurrentUser,
 ) -> None:
-    await delete_trip(session, user.primary_key, trip_id)
+    await delete_trip(session, user, trip_id)

@@ -3,6 +3,9 @@ from sqlalchemy.orm import raiseload
 from sqlmodel import col, select
 
 from app.database.session import Session
+from app.models.trip import TripTable
+from app.models.types.snowflake_id import SnowflakeId
+from app.models.user import UserTable
 from app.models.waypoint import (
     CreateWaypointRequest,
     UpdateWaypointRequest,
@@ -13,19 +16,17 @@ from app.responses import ConflictError, ErrorCode, NotFoundError
 from app.trips.crud import get_owned_trip
 
 
-def _trip_points(trip_key: int | None):
+def _trip_points(trip: TripTable):
     return (
-        select(WaypointTable)
-        .where(WaypointTable.trip_id == trip_key)
-        .options(raiseload("*"))
+        select(WaypointTable).where(WaypointTable.trip == trip).options(raiseload("*"))
     )
 
 
 async def _get_point(
-    session: Session, trip_key: int | None, point_id: int | None
+    session: Session, trip: TripTable, point_id: SnowflakeId
 ) -> WaypointTable:
     result = await session.execute(
-        _trip_points(trip_key).where(WaypointTable.id == point_id)
+        _trip_points(trip).where(WaypointTable.id == point_id)
     )
     point = result.scalar_one_or_none()
     if point is None:
@@ -35,36 +36,34 @@ async def _get_point(
 
 async def list_points(
     session: Session,
-    owner_id: int | None,
-    trip_id: int | None,
+    owner: UserTable,
+    trip_id: SnowflakeId,
 ) -> list[Waypoint]:
-    trip = await get_owned_trip(session, owner_id, trip_id)
+    trip = await get_owned_trip(session, owner, trip_id)
     points = await session.scalars(
-        _trip_points(trip.primary_key).order_by(col(WaypointTable.primary_key))
+        _trip_points(trip).order_by(col(WaypointTable.primary_key))
     )
     return [Waypoint.model_validate(point) for point in points]
 
 
 async def get_point(
     session: Session,
-    owner_id: int | None,
-    trip_id: int | None,
-    point_id: int | None,
+    owner: UserTable,
+    trip_id: SnowflakeId,
+    point_id: SnowflakeId,
 ) -> Waypoint:
-    trip = await get_owned_trip(session, owner_id, trip_id)
-    return Waypoint.model_validate(
-        await _get_point(session, trip.primary_key, point_id)
-    )
+    trip = await get_owned_trip(session, owner, trip_id)
+    return Waypoint.model_validate(await _get_point(session, trip, point_id))
 
 
 async def create_point(
     session: Session,
-    owner_id: int | None,
-    trip_id: int | None,
+    owner: UserTable,
+    trip_id: SnowflakeId,
     request: CreateWaypointRequest,
 ) -> Waypoint:
-    trip = await get_owned_trip(session, owner_id, trip_id, lock=True)
-    point = WaypointTable.model_validate(request, update={"trip_id": trip.primary_key})
+    trip = await get_owned_trip(session, owner, trip_id, lock=True)
+    point = WaypointTable.model_validate(request, update={"trip": trip})
     session.add(point)
     result = Waypoint.model_validate(point)
     await session.commit()
@@ -73,13 +72,13 @@ async def create_point(
 
 async def update_point(
     session: Session,
-    owner_id: int | None,
-    trip_id: int | None,
-    point_id: int | None,
+    owner: UserTable,
+    trip_id: SnowflakeId,
+    point_id: SnowflakeId,
     request: UpdateWaypointRequest,
 ) -> Waypoint:
-    trip = await get_owned_trip(session, owner_id, trip_id, lock=True)
-    point = await _get_point(session, trip.primary_key, point_id)
+    trip = await get_owned_trip(session, owner, trip_id, lock=True)
+    point = await _get_point(session, trip, point_id)
     point.sqlmodel_update(request.model_dump(exclude_unset=True))
     result = Waypoint.model_validate(point)
     await session.commit()
@@ -88,12 +87,12 @@ async def update_point(
 
 async def delete_point(
     session: Session,
-    owner_id: int | None,
-    trip_id: int | None,
-    point_id: int | None,
+    owner: UserTable,
+    trip_id: SnowflakeId,
+    point_id: SnowflakeId,
 ) -> None:
-    trip = await get_owned_trip(session, owner_id, trip_id, lock=True)
-    point = await _get_point(session, trip.primary_key, point_id)
+    trip = await get_owned_trip(session, owner, trip_id, lock=True)
+    point = await _get_point(session, trip, point_id)
     try:
         await session.delete(point)
         await session.commit()

@@ -37,7 +37,7 @@ async def test_trip_lifecycle_and_access(trip_session: Session):
     )
     trip = await create_trip(
         trip_session,
-        owner.primary_key,
+        owner,
         CreateTripRequest(
             name="Казань",
             started_on=date(2026, 12, 10),
@@ -46,28 +46,28 @@ async def test_trip_lifecycle_and_access(trip_session: Session):
         ),
     )
 
-    assert await list_trips(trip_session, other.primary_key) == []
+    assert await list_trips(trip_session, other) == []
     with pytest.raises(NotFoundError):
-        await get_trip(trip_session, other.primary_key, trip.id)
+        await get_trip(trip_session, other, trip.id)
 
     with pytest.raises(ValidationError):
         await update_trip(
             trip_session,
-            owner.primary_key,
+            owner,
             trip.id,
             UpdateTripRequest(started_on=date(2026, 12, 14)),
         )
 
     updated = await update_trip(
         trip_session,
-        owner.primary_key,
+        owner,
         trip.id,
         UpdateTripRequest(name="Казань и окрестности"),
     )
     assert updated.name == "Казань и окрестности"
     assert updated.started_on == trip.started_on
     assert updated.cover == "https://example.com/kazan.jpg"
-    assert await get_trip(trip_session, owner.primary_key, trip.id) == updated
+    assert await get_trip(trip_session, owner, trip.id) == updated
 
-    await delete_trip(trip_session, owner.primary_key, trip.id)
-    assert await list_trips(trip_session, owner.primary_key) == []
+    await delete_trip(trip_session, owner, trip.id)
+    assert await list_trips(trip_session, owner) == []

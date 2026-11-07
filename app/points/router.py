@@ -24,7 +24,7 @@ async def get_points(
     session: SessionDep,
     user: CurrentUser,
 ) -> list[Waypoint]:
-    return await list_points(session, user.primary_key, trip_id)
+    return await list_points(session, user, trip_id)
 
 
 @router.post(
@@ -38,7 +38,7 @@ async def post_point(
     session: SessionDep,
     user: CurrentUser,
 ) -> Waypoint:
-    return await create_point(session, user.primary_key, trip_id, request)
+    return await create_point(session, user, trip_id, request)
 
 
 @router.get("/{pointId}", responses=responses(AuthorizationError, NotFoundError))
@@ -48,7 +48,7 @@ async def get_point_by_id(
     session: SessionDep,
     user: CurrentUser,
 ) -> Waypoint:
-    return await get_point(session, user.primary_key, trip_id, point_id)
+    return await get_point(session, user, trip_id, point_id)
 
 
 @router.patch("/{pointId}", responses=responses(AuthorizationError, NotFoundError))
@@ -59,7 +59,7 @@ async def patch_point(
     session: SessionDep,
     user: CurrentUser,
 ) -> Waypoint:
-    return await update_point(session, user.primary_key, trip_id, point_id, request)
+    return await update_point(session, user, trip_id, point_id, request)
 
 
 @router.delete(
@@ -73,4 +73,4 @@ async def remove_point(
     session: SessionDep,
     user: CurrentUser,
 ) -> None:
-    await delete_point(session, user.primary_key, trip_id, point_id)
+    await delete_point(session, user, trip_id, point_id)

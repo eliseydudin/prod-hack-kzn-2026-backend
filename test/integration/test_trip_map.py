@@ -8,7 +8,7 @@ from app.auth.hasher import hash_password
 from app.database import Session
 from app.models.movement import CreateMovementRequest, UpdateMovementRequest
 from app.models.trip import CreateTripRequest
-from app.models.user import CreateUserRequest
+from app.models.user import CreateUserRequest, UserTable
 from app.models.waypoint import CreateWaypointRequest, UpdateWaypointRequest, Waypoint
 from app.points.crud import (
     create_point,
@@ -46,19 +46,18 @@ async def map_session():
         await engine.dispose()
 
 
-async def _create_owner(session: Session) -> int:
-    user = await create_user(
+async def _create_owner(session: Session) -> UserTable:
+    return await create_user(
         session,
         CreateUserRequest(username=f"map{uuid4().hex[:24]}", password="password"),
         hash_password,
     )
-    return user.primary_key  # type: ignore
 
 
-async def _create_trip(session: Session, owner_id: int) -> int:
+async def _create_trip(session: Session, owner: UserTable) -> int:
     trip = await create_trip(
         session,
-        owner_id,
+        owner,
         CreateTripRequest(
             name="Kazan", started_on=date(2026, 12, 10), ended_on=date(2026, 12, 13)
         ),
@@ -68,7 +67,7 @@ async def _create_trip(session: Session, owner_id: int) -> int:
 
 async def _create_point(
     session: Session,
-    owner_id: int,
+    owner: UserTable,
     trip_id: int,
     name: str,
     *,
@@ -76,7 +75,7 @@ async def _create_point(
 ) -> Waypoint:
     return await create_point(
         session,
-        owner_id,
+        owner,
         trip_id,
         CreateWaypointRequest(
             name=name, latitude=55.8, longitude=49.1, description=description
@@ -96,42 +95,42 @@ def _transfer_request(start_id: int, end_id: int) -> CreateMovementRequest:
 
 async def test_trip_points_and_transfers(map_session: Session):
     session = map_session
-    owner_id = await _create_owner(session)
-    outsider_id = await _create_owner(session)
-    trip_id = await _create_trip(session, owner_id)
-    other_trip_id = await _create_trip(session, owner_id)
+    owner = await _create_owner(session)
+    outsider = await _create_owner(session)
+    trip_id = await _create_trip(session, owner)
+    other_trip_id = await _create_trip(session, owner)
     with pytest.raises(NotFoundError):
-        await list_points(session, outsider_id, trip_id)
+        await list_points(session, outsider, trip_id)
 
-    start = await _create_point(session, owner_id, trip_id, "Station")
-    end = await _create_point(session, owner_id, trip_id, "Hotel")
-    foreign = await _create_point(session, owner_id, other_trip_id, "Airport")
+    start = await _create_point(session, owner, trip_id, "Station")
+    end = await _create_point(session, owner, trip_id, "Hotel")
+    foreign = await _create_point(session, owner, other_trip_id, "Airport")
     edited_point = await update_point(
-        session, owner_id, trip_id, start.id, UpdateWaypointRequest(name="Main station")
+        session, owner, trip_id, start.id, UpdateWaypointRequest(name="Main station")
     )
     assert edited_point == start.model_copy(update={"name": "Main station"})
-    assert await get_point(session, owner_id, trip_id, start.id) == edited_point
-    assert await list_points(session, owner_id, trip_id) == [edited_point, end]
+    assert await get_point(session, owner, trip_id, start.id) == edited_point
+    assert await list_points(session, owner, trip_id) == [edited_point, end]
 
     request = _transfer_request(start.id, end.id)
     with pytest.raises(NotFoundError):
         await create_transfer(
             session,
-            owner_id,
+            owner,
             trip_id,
             request.model_copy(update={"ends_at_waypoint_id": foreign.id}),
         )
-    created = await create_transfer(session, owner_id, trip_id, request)
+    created = await create_transfer(session, owner, trip_id, request)
     with pytest.raises(NotFoundError):
-        await get_transfer(session, outsider_id, trip_id, created.id)
+        await get_transfer(session, outsider, trip_id, created.id)
     with pytest.raises(NotFoundError):
-        await get_transfer(session, owner_id, other_trip_id, created.id)
-    assert await get_transfer(session, owner_id, trip_id, created.id) == created
+        await get_transfer(session, owner, other_trip_id, created.id)
+    assert await get_transfer(session, owner, trip_id, created.id) == created
 
     with pytest.raises(NotFoundError):
         await update_transfer(
             session,
-            owner_id,
+            owner,
             trip_id,
             created.id,
             UpdateMovementRequest(starts_at_waypoint_id=foreign.id),
@@ -139,7 +138,7 @@ async def test_trip_points_and_transfers(map_session: Session):
     with pytest.raises(ValidationError):
         await update_transfer(
             session,
-            owner_id,
+            owner,
             trip_id,
             created.id,
             UpdateMovementRequest(started_at=datetime(2026, 12, 10, 10, tzinfo=UTC)),
@@ -152,56 +151,56 @@ async def test_trip_points_and_transfers(map_session: Session):
         "ended_at": None,
     }
     edited_transfer = await update_transfer(
-        session, owner_id, trip_id, created.id, UpdateMovementRequest(**changes)
+        session, owner, trip_id, created.id, UpdateMovementRequest(**changes)
     )
     assert edited_transfer == created.model_copy(update=changes)
-    assert await list_transfers(session, owner_id, trip_id) == [edited_transfer]
+    assert await list_transfers(session, owner, trip_id) == [edited_transfer]
 
     with pytest.raises(ConflictError) as conflict:
-        await delete_point(session, owner_id, trip_id, start.id)
+        await delete_point(session, owner, trip_id, start.id)
     assert conflict.value.error_code == ErrorCode.POINT_HAS_TRANSFERS
     with pytest.raises(ConflictError):
-        await delete_trip(session, owner_id, trip_id)
-    await delete_transfer(session, owner_id, trip_id, created.id)
-    assert await list_transfers(session, owner_id, trip_id) == []
-    await delete_point(session, owner_id, trip_id, start.id)
+        await delete_trip(session, owner, trip_id)
+    await delete_transfer(session, owner, trip_id, created.id)
+    assert await list_transfers(session, owner, trip_id) == []
+    await delete_point(session, owner, trip_id, start.id)
     with pytest.raises(NotFoundError):
-        await get_point(session, owner_id, trip_id, start.id)
+        await get_point(session, owner, trip_id, start.id)
 
 
 async def test_patch_point_updates_coordinates_and_clears_description(
     map_session: Session,
 ):
-    owner_id = await _create_owner(map_session)
-    trip_id = await _create_trip(map_session, owner_id)
+    owner = await _create_owner(map_session)
+    trip_id = await _create_trip(map_session, owner)
     original = await _create_point(
-        map_session, owner_id, trip_id, "Station", description="Main entrance"
+        map_session, owner, trip_id, "Station", description="Main entrance"
     )
     changes = {"latitude": 55.81, "longitude": 49.12, "description": None}
 
     updated = await update_point(
-        map_session, owner_id, trip_id, original.id, UpdateWaypointRequest(**changes)
+        map_session, owner, trip_id, original.id, UpdateWaypointRequest(**changes)
     )
 
     expected = original.model_copy(update=changes)
     assert updated == expected
-    assert await get_point(map_session, owner_id, trip_id, original.id) == expected
+    assert await get_point(map_session, owner, trip_id, original.id) == expected
 
 
 async def test_patch_transfer_releases_replaced_point(map_session: Session):
-    owner_id = await _create_owner(map_session)
-    trip_id = await _create_trip(map_session, owner_id)
-    start = await _create_point(map_session, owner_id, trip_id, "Station")
-    end = await _create_point(map_session, owner_id, trip_id, "Hotel")
-    replacement = await _create_point(map_session, owner_id, trip_id, "Airport")
+    owner = await _create_owner(map_session)
+    trip_id = await _create_trip(map_session, owner)
+    start = await _create_point(map_session, owner, trip_id, "Station")
+    end = await _create_point(map_session, owner, trip_id, "Hotel")
+    replacement = await _create_point(map_session, owner, trip_id, "Airport")
     original = await create_transfer(
-        map_session, owner_id, trip_id, _transfer_request(start.id, end.id)
+        map_session, owner, trip_id, _transfer_request(start.id, end.id)
     )
     changes = {"ends_at_waypoint_id": replacement.id}
 
     updated = await update_transfer(
         map_session,
-        owner_id,
+        owner,
         trip_id,
         original.id,
         UpdateMovementRequest(**changes),  # type: ignore
@@ -209,5 +208,5 @@ async def test_patch_transfer_releases_replaced_point(map_session: Session):
 
     expected = original.model_copy(update=changes)
     assert updated == expected
-    await delete_point(map_session, owner_id, trip_id, end.id)
-    assert await get_transfer(map_session, owner_id, trip_id, original.id) == expected
+    await delete_point(map_session, owner, trip_id, end.id)
+    assert await get_transfer(map_session, owner, trip_id, original.id) == expected

@@ -24,7 +24,7 @@ async def get_transfers(
     session: SessionDep,
     user: CurrentUser,
 ) -> list[Movement]:
-    return await list_transfers(session, user.primary_key, trip_id)
+    return await list_transfers(session, user, trip_id)
 
 
 @router.post(
@@ -38,7 +38,7 @@ async def post_transfer(
     session: SessionDep,
     user: CurrentUser,
 ) -> Movement:
-    return await create_transfer(session, user.primary_key, trip_id, request)
+    return await create_transfer(session, user, trip_id, request)
 
 
 @router.get("/{transferId}", responses=responses(AuthorizationError, NotFoundError))
@@ -48,7 +48,7 @@ async def get_transfer_by_id(
     session: SessionDep,
     user: CurrentUser,
 ) -> Movement:
-    return await get_transfer(session, user.primary_key, trip_id, transfer_id)
+    return await get_transfer(session, user, trip_id, transfer_id)
 
 
 @router.patch("/{transferId}", responses=responses(AuthorizationError, NotFoundError))
@@ -59,9 +59,7 @@ async def patch_transfer(
     session: SessionDep,
     user: CurrentUser,
 ) -> Movement:
-    return await update_transfer(
-        session, user.primary_key, trip_id, transfer_id, request
-    )
+    return await update_transfer(session, user, trip_id, transfer_id, request)
 
 
 @router.delete(
@@ -75,4 +73,4 @@ async def remove_transfer(
     session: SessionDep,
     user: CurrentUser,
 ) -> None:
-    await delete_transfer(session, user.primary_key, trip_id, transfer_id)
+    await delete_transfer(session, user, trip_id, transfer_id)

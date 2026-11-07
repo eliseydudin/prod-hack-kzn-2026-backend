@@ -10,16 +10,18 @@ from app.models.event import (
     UpdateEventRequest,
 )
 from app.models.trip import TripTable
+from app.models.types.snowflake_id import SnowflakeId
+from app.models.user import UserTable
 from app.models.waypoint import WaypointTable
 from app.responses import NotFoundError
 from app.responses.exceptions.http import ValidationError
 from app.trips.crud import get_owned_trip
 
 
-def get_trip_events(trip_key: int | None):
+def get_trip_events(trip: TripTable):
     return (
         select(EventTable)
-        .where(EventTable.trip_id == trip_key)
+        .where(EventTable.trip == trip)
         .execution_options(populate_existing=True)
     )
 
@@ -27,11 +29,9 @@ def get_trip_events(trip_key: int | None):
 async def get_event_in_trip(
     session: Session,
     trip: TripTable,
-    event_id: int | None,
+    event_id: SnowflakeId,
 ) -> EventTable:
-    event = await session.scalar(
-        get_trip_events(trip.primary_key).where(EventTable.id == event_id)
-    )
+    event = await session.scalar(get_trip_events(trip).where(EventTable.id == event_id))
     if event is None:
         raise NotFoundError
     return event
@@ -40,13 +40,13 @@ async def get_event_in_trip(
 async def get_waypoint_in_trip(
     session: Session,
     trip: TripTable,
-    waypoint_id: int | None,
+    waypoint_id: SnowflakeId | None,
 ) -> WaypointTable | None:
     if waypoint_id is None:
         return None
     waypoint = await session.scalar(
         select(WaypointTable).where(
-            WaypointTable.trip_id == trip.primary_key,
+            WaypointTable.trip == trip,
             WaypointTable.id == waypoint_id,
         )
     )
@@ -67,12 +67,12 @@ def validate_trip_dates(trip: TripTable, event: EventBase) -> None:
 
 async def list_events(
     session: Session,
-    owner_id: int | None,
-    trip_id: int | None,
+    owner: UserTable,
+    trip_id: SnowflakeId,
 ) -> list[Event]:
-    trip = await get_owned_trip(session, owner_id, trip_id)
+    trip = await get_owned_trip(session, owner, trip_id)
     rows = await session.scalars(
-        get_trip_events(trip.primary_key).order_by(
+        get_trip_events(trip).order_by(
             col(EventTable.started_at), col(EventTable.primary_key)
         )
     )
@@ -81,25 +81,25 @@ async def list_events(
 
 async def get_event(
     session: Session,
-    owner_id: int | None,
-    trip_id: int | None,
-    event_id: int | None,
+    owner: UserTable,
+    trip_id: SnowflakeId,
+    event_id: SnowflakeId,
 ) -> Event:
-    trip = await get_owned_trip(session, owner_id, trip_id)
+    trip = await get_owned_trip(session, owner, trip_id)
     return Event.model_validate(await get_event_in_trip(session, trip, event_id))
 
 
 async def create_event(
     session: Session,
-    owner_id: int | None,
-    trip_id: int | None,
+    owner: UserTable,
+    trip_id: SnowflakeId,
     request: CreateEventRequest,
 ) -> Event:
-    trip = await get_owned_trip(session, owner_id, trip_id, lock=True)
+    trip = await get_owned_trip(session, owner, trip_id, lock=True)
     validate_trip_dates(trip, request)
     waypoint = await get_waypoint_in_trip(session, trip, request.waypoint_id)
     event = EventTable.model_validate(
-        request, update={"trip_id": trip.primary_key, "waypoint": waypoint}
+        request, update={"trip": trip, "waypoint": waypoint}
     )
     session.add(event)
     await session.commit()
@@ -109,12 +109,12 @@ async def create_event(
 
 async def update_event(
     session: Session,
-    owner_id: int | None,
-    trip_id: int | None,
-    event_id: int | None,
+    owner: UserTable,
+    trip_id: SnowflakeId,
+    event_id: SnowflakeId,
     request: UpdateEventRequest,
 ) -> Event:
-    trip = await get_owned_trip(session, owner_id, trip_id, lock=True)
+    trip = await get_owned_trip(session, owner, trip_id, lock=True)
     event = await get_event_in_trip(session, trip, event_id)
 
     try:
@@ -145,10 +145,10 @@ async def update_event(
 
 async def delete_event(
     session: Session,
-    owner_id: int | None,
-    trip_id: int | None,
-    event_id: int | None,
+    owner: UserTable,
+    trip_id: SnowflakeId,
+    event_id: SnowflakeId,
 ) -> None:
-    trip = await get_owned_trip(session, owner_id, trip_id, lock=True)
+    trip = await get_owned_trip(session, owner, trip_id, lock=True)
     await session.delete(await get_event_in_trip(session, trip, event_id))
     await session.commit()
