@@ -1,4 +1,5 @@
 from os import path
+from pathlib import Path
 from random import randint
 
 from pydantic import (
@@ -45,6 +46,12 @@ class Settings(BaseSettings):
 
     bootstrap_username: str | None = None
     bootstrap_password: str | None = None
+    push_vapid_key_file: Path | None = Field(
+        default=None, validation_alias="PUSH__VAPID_KEY_FILE"
+    )
+    push_vapid_subject: str | None = Field(
+        default=None, validation_alias="PUSH__VAPID_SUBJECT"
+    )
 
     machine_id: int = Field(
         default_factory=lambda: randint(0, 2**10 - 1),

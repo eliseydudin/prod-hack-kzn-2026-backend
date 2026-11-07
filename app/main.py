@@ -16,6 +16,7 @@ from app.database import get_session_ctx, setup_tables
 from app.events.router import router as events_router
 from app.models.status import Status
 from app.points.router import router as points_router
+from app.push.router import router as push_router
 from app.rate_limit import limit_user_requests, rate_limit_lifespan
 from app.responses import HTTPException, RateLimitError, ValidationError, responses
 from app.settings import settings
@@ -61,6 +62,7 @@ for router in (trips_router, points_router, transfers_router, events_router):
         dependencies=[Depends(limit_user_requests)],
         responses=responses(RateLimitError),
     )
+app.include_router(push_router)
 
 ALLOWED_ORIGINS = [
     "http://localhost:3000",

@@ -14,6 +14,15 @@ entity User {
 	* updated_at <<timestamptz>>
 }
 
+entity PushSubscription {
+	* primary_key <<generated>>
+	* id <<snowflake, unique>>
+	* endpoint <<unique>>
+	* p256dh
+	* auth
+	* owner_id <<foreign key>>
+}
+
 entity Trip {
 	* primary_key <<generated>>
 	* id <<snowflake>>
@@ -69,6 +78,7 @@ entity Event {
 	booking_url
 }
 
+User ||--o{ PushSubscription
 User ||--o{ Trip : owner
 Trip ||--o{ Waypoint
 Waypoint ||--o{ Movement : starts_at_waypoint, ends_at_waypoint
