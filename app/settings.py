@@ -4,7 +4,6 @@ from random import randint
 from pydantic import (
     BaseModel,
     Field,
-    HttpUrl,
     PositiveInt,
     RedisDsn,
     SecretStr,
@@ -34,7 +33,6 @@ class Settings(BaseSettings):
     jwt_token: str
     redis_url: RedisDsn | None = None
     storage: StorageSettings | None = None
-    ticket_geocoder_url: HttpUrl = HttpUrl("https://photon.komoot.io")
 
     rate_limit_window_seconds: PositiveInt = 60
     rate_limit_login: PositiveInt = 10
