@@ -14,4 +14,64 @@ entity User {
 	* updated_at <<timestamptz>>
 }
 
+entity Trip {
+	* primary_key <<generated>>
+	* id <<snowflake>>
+	--
+	* owner_id
+	--
+	* name
+	description
+	* started_at <<date>>
+	ended_at <<date>>
+	cover <<url>>
+	* created_at <<timestamptz>>
+	* updated_at <<timestamptz>>
+}
+
+entity Waypoint {
+	* primary_key <<generated>>
+	* id <<snowflake>>
+	--
+	* trip_id
+	--
+	* latitude
+	* longitude
+	* name
+	description
+}
+
+entity Movement {
+	* primary_key <<generated>>
+	* id <<snowflake>>
+	--
+	* starts_at_waypoint_id
+	* ends_at_waypoint_id
+	--
+	* transport_type
+	description
+	* started_at <<timestamptz>>
+	* ends_at <<timestamptz>>
+}
+
+entity Event {
+	* primary_key <<generated>>
+	* id <<snowflake>>
+	--
+	* trip_id
+	waypoint_id
+	--
+	* title
+	* type
+	description
+	* started_at
+	ended_at
+	booking_url
+}
+
+User ||--o{ Trip : owner
+Trip ||--o{ Waypoint
+Waypoint ||--o{ Movement : starts_at_waypoint, ends_at_waypoint
+Trip ||--o{ Event
+
 @enduml

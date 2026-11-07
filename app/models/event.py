@@ -1,22 +1,20 @@
-from datetime import datetime
 from enum import StrEnum, auto
 from typing import Annotated
 
 from pydantic import (
     AfterValidator,
     HttpUrl,
-    NaiveDatetime,
-    StringConstraints,
     TypeAdapter,
     model_validator,
 )
 from pydantic_core import MISSING
-from sqlmodel import Field, Relationship, String, Text
+from sqlmodel import Field, Relationship, Text
 
 from app.models.base import Base, PrimaryKeyBase, SnowflakeIdBase
 from app.models.trip import TripTable
 from app.models.types.missing import MaybeMissing
 from app.models.types.snowflake_id import SnowflakeId
+from app.models.types.time import Timestamp
 from app.models.waypoint import WaypointTable
 
 
@@ -36,26 +34,15 @@ def validate_booking_url(value: str) -> str:
     return str(_booking_url.validate_python(value))
 
 
-DESCRIPTION_LIMIT = 512
-EventTitle = Annotated[
-    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=128)
-]
-EventDescription = Annotated[
-    str, StringConstraints(strip_whitespace=True, max_length=DESCRIPTION_LIMIT)
-]
 BookingUrl = Annotated[str, AfterValidator(validate_booking_url)]
-LocalDateTime = Annotated[datetime, NaiveDatetime]
-EventWaypointId = Annotated[SnowflakeId, Field(gt=0)]
 
 
 class EventBase(Base):
-    title: EventTitle = Field(sa_type=String(128))
-    type: EventType = Field(sa_type=String(16))
-    description: EventDescription | None = Field(
-        default=None, sa_type=String(DESCRIPTION_LIMIT)
-    )
-    started_at: LocalDateTime
-    ended_at: LocalDateTime | None = None
+    title: str = Field(min_length=1, max_length=128)
+    type: EventType
+    description: str | None = Field(default=None, min_length=1, max_length=512)
+    started_at: Timestamp
+    ended_at: Timestamp | None = None
     booking_url: BookingUrl | None = Field(default=None, sa_type=Text)
 
 
@@ -65,12 +52,18 @@ class EventExtraBase(EventBase, SnowflakeIdBase):
 
 class EventTable(EventExtraBase, PrimaryKeyBase, table=True):
     trip_id: int | None = Field(
-        default=None, foreign_key="trip.primary_key", nullable=False
+        default=None,
+        foreign_key="trip.primary_key",
+        nullable=False,
     )
     waypoint_primary_key: int | None = Field(
-        default=None, foreign_key="waypoint.primary_key", ondelete="SET NULL"
+        default=None,
+        foreign_key="waypoint.primary_key",
+        ondelete="SET NULL",
     )
-    trip: TripTable | None = Relationship()
+    trip: TripTable | None = Relationship(
+        sa_relationship_kwargs={"lazy": "selectin"},
+    )
     waypoint: WaypointTable | None = Relationship(
         sa_relationship_kwargs={"lazy": "selectin"},
     )
@@ -81,11 +74,11 @@ class EventTable(EventExtraBase, PrimaryKeyBase, table=True):
 
 
 class Event(EventExtraBase):
-    waypoint_id: EventWaypointId | None = None
+    waypoint_id: SnowflakeId | None = None
 
 
 class CreateEventRequest(EventBase):
-    waypoint_id: EventWaypointId | None = None
+    waypoint_id: SnowflakeId | None = None
 
     @model_validator(mode="after")
     def validate_time_range(self):
@@ -95,13 +88,13 @@ class CreateEventRequest(EventBase):
 
 
 class UpdateEventRequest(Base):
-    title: MaybeMissing[EventTitle] = MISSING
+    title: MaybeMissing[str] = MISSING
     type: MaybeMissing[EventType] = MISSING
-    description: MaybeMissing[EventDescription | None] = MISSING
-    started_at: MaybeMissing[LocalDateTime] = MISSING
-    ended_at: MaybeMissing[LocalDateTime | None] = MISSING
+    description: MaybeMissing[str | None] = MISSING
+    started_at: MaybeMissing[Timestamp] = MISSING
+    ended_at: MaybeMissing[Timestamp | None] = MISSING
     booking_url: MaybeMissing[BookingUrl | None] = MISSING
-    waypoint_id: MaybeMissing[EventWaypointId | None] = MISSING
+    waypoint_id: MaybeMissing[SnowflakeId | None] = MISSING
 
     @model_validator(mode="after")
     def validate_time_range(self):

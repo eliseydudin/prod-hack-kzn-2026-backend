@@ -4,13 +4,12 @@ from typing import TYPE_CHECKING, Annotated
 from pydantic import (
     AfterValidator,
     HttpUrl,
-    StringConstraints,
     TypeAdapter,
     field_serializer,
     model_validator,
 )
 from pydantic_core import MISSING
-from sqlmodel import Field, Relationship, String, Text
+from sqlmodel import Field, Relationship, Text
 
 from app.models.base import Base, PrimaryKeyBase, SnowflakeIdBase
 from app.models.types.missing import MaybeMissing
@@ -28,17 +27,14 @@ def validate_cover_link(value: str) -> str:
 
 
 CoverLink = Annotated[str, AfterValidator(validate_cover_link)]
-TrimmedText = Annotated[str, StringConstraints(strip_whitespace=True)]
-DESCRIPTION_LIMIT = 512
-TripDescription = Annotated[
-    str, StringConstraints(strip_whitespace=True, max_length=DESCRIPTION_LIMIT)
-]
 
 
 class TripBase(Base):
-    name: TrimmedText = Field(min_length=1, max_length=128)
-    description: TripDescription | None = Field(
-        default=None, sa_type=String(DESCRIPTION_LIMIT)
+    name: str = Field(min_length=1, max_length=128)
+    description: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=512,
     )
     started_on: date
     ended_on: date | None = None
@@ -78,10 +74,12 @@ class CreateTripRequest(TripBase):
 
 
 class UpdateTripRequest(Base):
-    name: MaybeMissing[TrimmedText] = Field(
-        default=MISSING, min_length=1, max_length=128
+    name: MaybeMissing[str] = Field(default=MISSING, min_length=1, max_length=128)
+    description: MaybeMissing[str | None] = Field(
+        default=MISSING,
+        min_length=1,
+        max_length=512,
     )
-    description: MaybeMissing[TripDescription | None] = Field(default=MISSING)
     started_on: MaybeMissing[date] = Field(default=MISSING)
     ended_on: MaybeMissing[date | None] = Field(default=MISSING)
     cover: MaybeMissing[CoverLink | None] = Field(default=MISSING)
