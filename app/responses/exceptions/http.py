@@ -74,6 +74,16 @@ class GoneError(HTTPException):
     error_code: ErrorCode = ErrorCode.NOT_FOUND
 
 
+@dataclass
+class PayloadTooLargeError(HTTPException):
+    status_code = 413
+
+
+@dataclass
+class UnsupportedMediaTypeError(HTTPException):
+    status_code = 415
+
+
 @dataclass(kw_only=True, config={"alias_generator": to_camel, "validate_by_name": True})
 class RateLimitError(HTTPException):
     status_code = 429
