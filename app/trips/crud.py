@@ -1,3 +1,5 @@
+import warnings
+
 from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import col, delete, desc, select
@@ -24,16 +26,15 @@ async def get_owned_trip(
     owner: UserTable,
     trip_id: SnowflakeId,
     *,
-    lock: bool = False,
+    lock: bool | None = None,
 ) -> TripTable:
-    query = select(TripTable).where(
-        col(TripTable.id) == trip_id,
-        col(TripTable.owner) == owner,
-    )
-    if lock:
-        query = query.with_for_update(of=TripTable)
-    trip = (await session.execute(query)).scalar_one_or_none()
-    if trip is None:
+    if lock is not None:
+        warnings.warn("`lock` on `get_owned_trip` is deprecated")
+
+    query = select(TripTable).where(col(TripTable.id) == trip_id)
+    trip = (await session.execute(query)).scalar()
+
+    if trip is None or trip.owner != owner or owner not in trip.collaborators:
         raise NotFoundError
     return trip
 

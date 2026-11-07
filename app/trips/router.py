@@ -27,7 +27,6 @@ async def get_trips(session: SessionDep, user: CurrentUser) -> list[Trip]:
 
 @router.post(
     "",
-    response_model=Trip,
     status_code=status.HTTP_201_CREATED,
     responses=responses(AuthorizationError),
 )
@@ -41,7 +40,6 @@ async def post_trip(
 
 @router.get(
     "/{trip_id}",
-    response_model=Trip,
     responses=responses(AuthorizationError, NotFoundError),
 )
 async def get_trip_by_id(
@@ -54,7 +52,6 @@ async def get_trip_by_id(
 
 @router.patch(
     "/{trip_id}",
-    response_model=Trip,
     responses=responses(AuthorizationError, NotFoundError),
 )
 async def patch_trip(
