@@ -66,7 +66,10 @@ class CreateMovementRequest(MovementBase):
             return None
         if value.utcoffset() is None:
             raise ValueError("timestamps must include a timezone")
-        return value.astimezone(UTC)
+        try:
+            return value.astimezone(UTC)
+        except OverflowError as error:
+            raise ValueError("timestamp is out of range in UTC") from error
 
     @model_validator(mode="after")
     def validate_time_range(self):
