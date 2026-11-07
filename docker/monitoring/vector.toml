@@ -1,0 +1,120 @@
+data_dir = "/var/lib/vector"
+
+[sources.containers]
+type = "docker_logs"
+include_labels = ["com.docker.compose.project=${MONITORING_TARGET_PROJECT}"]
+
+[sources.vector_metrics]
+type = "internal_metrics"
+
+[transforms.logs]
+type = "remap"
+inputs = ["containers"]
+source = '''
+service = string!(.label."com.docker.compose.service")
+received_at = .timestamp
+stream = .stream
+message = string!(.message)
+parsed, err = parse_json(message)
+if err == null && is_object(parsed) {
+  . = object!(parsed)
+  if service == "nginx" && is_string(.uri) {
+    .uri = split(string!(.uri), "?", limit: 2)[0]
+  }
+} else {
+  . = {"message": replace(message, r'(\b[A-Z]+ /[^?\s"]*|https?://[^?\s"]+)\?[^"\s]*', "$$1")}
+}
+
+level = downcase(string(.level) ?? "")
+if service == "nginx" && is_integer(.status) {
+  status = int!(.status)
+  level = if status >= 500 { "error" } else if status >= 400 { "warn" } else { "info" }
+} else if level == "" {
+  fields = parse_regex(message, r'(?i)\[(?P<bracket>debug|info|notice|warn|error|crit|alert|emerg)\]|\b(?P<prefix>debug|log|info|notice|warning|error|critical|fatal|panic):') ?? {}
+  level = downcase(string(fields.bracket) ?? string(fields.prefix) ?? "")
+}
+.level = if includes(["crit", "critical", "alert", "emerg", "emergency", "fatal", "panic", "error"], level) {
+  "error"
+} else if includes(["warn", "warning"], level) {
+  "warn"
+} else if includes(["log", "info", "notice"], level) {
+  "info"
+} else if level == "debug" {
+  "debug"
+} else {
+  "unknown"
+}
+.service = service
+.timestamp = received_at
+.stream = stream
+'''
+
+[transforms.api_access]
+type = "filter"
+inputs = ["logs"]
+condition = '''.service == "nginx" && match(string(.uri) ?? "", r'^/api(/|$)') && is_integer(.status) && is_float(.request_time)'''
+
+[transforms.api_metrics]
+type = "log_to_metric"
+inputs = ["api_access"]
+
+[[transforms.api_metrics.metrics]]
+type = "counter"
+field = "status"
+name = "api_http_requests_total"
+tags.status = "{{ status }}"
+
+[[transforms.api_metrics.metrics]]
+type = "histogram"
+field = "request_time"
+name = "api_http_request_duration_seconds"
+
+[sinks.prometheus]
+type = "prometheus_exporter"
+inputs = ["api_metrics", "vector_metrics"]
+address = "0.0.0.0:9598"
+flush_period_secs = 0
+suppress_timestamp = true
+buckets = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0]
+
+[sinks.loki]
+type = "loki"
+inputs = ["logs"]
+endpoint = "http://loki:3100"
+healthcheck.enabled = false
+labels.service = "{{ service }}"
+labels.level = "{{ level }}"
+remove_label_fields = true
+remove_timestamp = true
+encoding.codec = "json"
+buffer.type = "disk"
+buffer.max_size = 268435488
+buffer.when_full = "drop_newest"
+batch.timeout_secs = 1
+
+[[tests]]
+name = "API failures keep the request ID and exclude query parameters"
+
+[[tests.inputs]]
+insert_at = "logs"
+type = "log"
+log_fields.message = '{"method":"GET","uri":"/api/v1/trips?token=secret","status":503,"request_time":0.042,"request_id":"example"}'
+log_fields.label."com.docker.compose.service" = "nginx"
+
+[[tests.outputs]]
+extract_from = "api_access"
+conditions = [{type = "vrl", source = 'assert!(.uri == "/api/v1/trips" && .request_id == "example" && .level == "error")'}]
+
+[[tests]]
+name = "Nginx error logs strip query parameters from both request and upstream URLs"
+no_outputs_from = ["api_access"]
+
+[[tests.inputs]]
+insert_at = "logs"
+type = "log"
+log_fields.message = '2026/11/07 [error] request: "GET /api/v1/trips?token=secret HTTP/1.1", upstream: "http://api:8000/api/v1/trips?token=secret"'
+log_fields.label."com.docker.compose.service" = "nginx"
+
+[[tests.outputs]]
+extract_from = "logs"
+conditions = [{type = "vrl", source = 'assert!(.level == "error" && !contains(string!(.message), "token=") && contains(string!(.message), "/api/v1/trips HTTP/1.1"))'}]

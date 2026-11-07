@@ -1,0 +1,59 @@
+{
+  "uid": "backend-logs",
+  "title": "Backend Logs",
+  "description": "Container stdout and stderr for the backend Compose project. Search for an Nginx request ID or any log text.",
+  "schemaVersion": 41,
+  "tags": ["backend", "logs"],
+  "time": {"from": "now-30m", "to": "now"},
+  "refresh": "30s",
+  "links": [
+    {"title": "Backend API", "type": "link", "url": "/d/backend-api", "includeVars": false, "keepTime": true}
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "label": "Service",
+        "type": "query",
+        "datasource": {"type": "loki", "uid": "backend-loki"},
+        "query": "label_values(service)",
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".+",
+        "current": {"text": "All", "value": "$__all"}
+      },
+      {
+        "name": "level",
+        "label": "Level",
+        "type": "custom",
+        "query": "error,warn,info,debug,unknown",
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".+",
+        "current": {"text": "All", "value": "$__all"}
+      },
+      {"name": "search", "label": "Search text or request ID", "type": "textbox", "current": {"text": "", "value": ""}}
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Warnings and errors by service",
+      "type": "timeseries",
+      "gridPos": {"x": 0, "y": 0, "w": 24, "h": 8},
+      "datasource": {"type": "loki", "uid": "backend-loki"},
+      "targets": [{"refId": "A", "expr": "sum by (service, level) (count_over_time({service=~\"${service:regex}\",level=~\"warn|error\"} |= ${search:doublequote} [$__auto]))", "legendFormat": "{{service}} · {{level}}", "queryType": "range"}],
+      "fieldConfig": {"defaults": {"unit": "short", "min": 0, "decimals": 0}}
+    },
+    {
+      "id": 2,
+      "title": "Recent log entries",
+      "type": "logs",
+      "gridPos": {"x": 0, "y": 8, "w": 24, "h": 16},
+      "datasource": {"type": "loki", "uid": "backend-loki"},
+      "targets": [{"refId": "A", "expr": "{service=~\"${service:regex}\",level=~\"${level:regex}\"} |= ${search:doublequote}", "queryType": "range", "maxLines": 500}],
+      "options": {"showTime": true, "showLabels": true, "enableLogDetails": true, "sortOrder": "Descending", "wrapLogMessage": true, "prettifyLogMessage": true}
+    }
+  ]
+}

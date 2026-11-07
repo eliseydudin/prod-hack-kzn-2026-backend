@@ -1,0 +1,57 @@
+name: backend-monitoring
+
+services:
+  grafana:
+    image: grafana/grafana:13.3.0
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3001}:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./docker/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./docker/monitoring/grafana/dashboards:/etc/grafana/dashboards:ro
+
+  prometheus:
+    image: prom/prometheus:v3.16.0
+    restart: unless-stopped
+    volumes:
+      - prometheus-data:/prometheus
+      - ./docker/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+  blackbox:
+    image: prom/blackbox-exporter:v0.29.1
+    restart: unless-stopped
+    networks: [default, backend]
+
+  loki:
+    image: grafana/loki:3.6.19
+    restart: unless-stopped
+    command: ["-config.file=/etc/loki/local-config.yaml"]
+    volumes:
+      - loki-data:/loki
+      - ./docker/monitoring/loki.yml:/etc/loki/local-config.yaml:ro
+
+  vector:
+    image: timberio/vector:0.58.0-alpine
+    restart: unless-stopped
+    command: ["--config", "/etc/vector/vector.toml", "--dangerously-allow-env-var-interpolation"]
+    environment:
+      MONITORING_TARGET_PROJECT: ${MONITORING_TARGET_PROJECT:-backend}
+    volumes:
+      - vector-data:/var/lib/vector
+      - ./docker/monitoring/vector.toml:/etc/vector/vector.toml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+networks:
+  backend:
+    external: true
+    name: ${MONITORING_TARGET_PROJECT:-backend}_default
+
+volumes:
+  grafana-data:
+  prometheus-data:
+  loki-data:
+  vector-data:

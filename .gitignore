@@ -12,6 +12,7 @@ wheels/
 # Dotenv
 .env
 .env.storage
+.env.monitoring
 
 # SQLite files
 *.db

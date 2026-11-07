@@ -73,6 +73,7 @@ target/
 # Virtual environment
 .env
 .env.storage
+.env.monitoring
 .venv/
 venv/
 
