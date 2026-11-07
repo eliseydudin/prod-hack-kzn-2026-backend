@@ -76,6 +76,10 @@ _NAME_WORDS = frozenset(
 )
 _ADDRESS_WORDS = {"г", "город", "д", "дом", "city"}
 _WORD_ALIASES = {"ул": "улица", "просп": "проспект"}
+_AIRPORT_FARE_SUFFIX = re.compile(
+    r"\s+(?:basics?|(?:basic |premium )?economy|business|first)(?:\s+class)?$",
+    re.IGNORECASE,
+)
 _RESULT_LIMIT = 8
 _RESPONSE_LIMIT = 64 * 1024
 
@@ -85,14 +89,22 @@ def _iata_airports():
     return airportsdata.load("IATA")
 
 
+def airport_timezone(iata: str | None) -> str | None:
+    if not iata:
+        return None
+    airport = _iata_airports().get(iata.strip().upper())
+    return (airport["tz"] or None) if airport is not None else None
+
+
 def _airport_point(place: ParsedPlace, iata: str) -> TicketPoint | None:
     airport = _iata_airports().get(iata)
     if airport is None:
         return None
     if place.name.upper() != iata and place.name.isascii():
-        given_name = _words(place.name) - _NAME_WORDS
-        city = _words(airport["city"])
-        airport_name = _words(airport["name"]) - _NAME_WORDS - city
+        label = _AIRPORT_FARE_SUFFIX.sub("", place.name)
+        given_name = set(_tokens(label)) - _NAME_WORDS
+        city = set(_tokens(airport["city"]))
+        airport_name = set(_tokens(airport["name"])) - _NAME_WORDS - city
         if not (given_name <= city or given_name & airport_name):
             return None
     address = _join_address(
@@ -127,20 +139,22 @@ def _photon_results(base_url: str, query: str) -> list:
 def _tokens(text: str) -> tuple[str, ...]:
     folded = normalize("NFKD", text.casefold())
     words = re.findall(r"[^\W_]+", "".join(c for c in folded if not combining(c)))
-    return tuple(
-        _WORD_ALIASES.get(word, word) for word in words if word not in _ADDRESS_WORDS
-    )
+    return tuple(_WORD_ALIASES.get(word, word) for word in words)
+
+
+def _address_tokens(text: str) -> tuple[str, ...]:
+    return tuple(word for word in _tokens(text) if word not in _ADDRESS_WORDS)
 
 
 def _words(text: str) -> set[str]:
-    return set(_tokens(text))
+    return set(_address_tokens(text))
 
 
 def _matches_street_number(query: str, street: str, house: str) -> bool:
-    street_tokens, house_tokens = _tokens(street), _tokens(house)
+    street_tokens, house_tokens = _address_tokens(street), _address_tokens(house)
     if not street_tokens or not house_tokens:
         return False
-    tokens = _tokens(query)
+    tokens = _address_tokens(query)
     length = len(street_tokens) + len(house_tokens)
     orders = (street_tokens + house_tokens, house_tokens + street_tokens)
     return any(

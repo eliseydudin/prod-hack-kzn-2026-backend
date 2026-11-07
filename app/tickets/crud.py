@@ -4,7 +4,6 @@ from pydantic import ValidationError as PydanticValidationError
 from sqlmodel import col, select
 
 from app.database.session import Session
-from app.events.crud import validate_trip_dates
 from app.models.event import CreateEventRequest, Event, EventTable, EventType
 from app.models.movement import (
     CreateMovementRequest,
@@ -24,6 +23,7 @@ from app.models.types.snowflake_id import SnowflakeId
 from app.models.user import UserTable
 from app.models.waypoint import Waypoint, WaypointTable
 from app.responses import NotFoundError, ValidationError
+from app.tickets.timing import trip_time_issues
 from app.trips.crud import get_owned_trip
 from app.utils.snowflake_id import generate_snowflake_id_in_base_epoch
 
@@ -99,7 +99,6 @@ async def _apply_stay(
     event = CreateEventRequest.model_validate(
         request, update={"title": request.stay.name, "type": EventType.STAY}
     )
-    validate_trip_dates(trip, event)
     waypoint = _get_or_create_point(session, trip, request.stay)
     row = None
     if waypoint.primary_key is not None:
@@ -151,6 +150,16 @@ async def apply_ticket(
         if locked_trip is None:
             raise NotFoundError
         trip = await get_owned_trip(session, owner, trip_id)
+        issues = trip_time_issues(
+            request.started_at,
+            request.ended_at,
+            trip.started_on,
+            trip.ended_on,
+        )
+        if issues:
+            raise ValidationError(
+                errors=[issue.model_dump(by_alias=True) for issue in issues]
+            )
         if isinstance(request, TransferTicketRequest):
             result = await _apply_transfer(session, trip, request)
         else:

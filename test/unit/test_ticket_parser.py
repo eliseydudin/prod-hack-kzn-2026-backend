@@ -1,9 +1,14 @@
-from datetime import datetime
+from datetime import datetime, time
 
 import pytest
 
 from app.models.ticket import TicketKind
-from app.tickets.parser import ParsedPlace, TicketParseError, parse_ticket
+from app.tickets.parser import (
+    ParsedBoardingTime,
+    ParsedPlace,
+    TicketParseError,
+    parse_ticket,
+)
 
 
 def test_flight_reads_iata_and_explicit_timestamps_without_passenger_data():
@@ -36,6 +41,37 @@ def test_separate_ticket_date_and_time_are_combined_without_guessing():
         "Departure date: 2026-12-11\nDeparture time: 15:00+03:00"
     )
     assert ambiguous.started_at is None
+
+
+def test_boarding_pass_reads_left_route_and_departure_from_repeated_coupons():
+    def columns(*values: str) -> str:
+        return "    " + "".join(value.ljust(30) for value in values).rstrip()
+
+    coupon = "\n".join(
+        (
+            columns("From / От", "To / До", "To / До"),
+            columns("MOSCOW", "KAZAN / KZN", "KAZAN / KZN"),
+            columns("SHEREMETYEVO / SVO", "", "BAGGAGE"),
+            columns("Carrier/Flight /", "Class/Date /", "Depart time /", "Flight /"),
+            columns("Перевозчик/Рейс", "Класс/Дата", "Время вылета", "13:10"),
+            columns("XX 100", "G 05 NOV", "13:10", "Boarding time /"),
+            columns("Boarding time /", "12:30–12:50"),
+        )
+    )
+
+    ticket = parse_ticket(f"{coupon}\n{coupon}")
+
+    assert ticket.kind == TicketKind.PLANE
+    assert ticket.places == (
+        ParsedPlace("MOSCOW SHEREMETYEVO", iata="SVO"),
+        ParsedPlace("KAZAN", iata="KZN"),
+    )
+    assert ticket.started_at_hint == ParsedBoardingTime(11, 5, time(13, 10))
+    assert ticket.started_at is ticket.ended_at is None
+
+    different_route = coupon.replace("KAZAN / KZN", "SOCHI / AER")
+    with pytest.raises(TicketParseError, match="ticket_route_ambiguous"):
+        parse_ticket(f"{coupon}\n{different_route}")
 
 
 def test_private_fields_are_not_locations_and_hotel_offset_is_preserved():

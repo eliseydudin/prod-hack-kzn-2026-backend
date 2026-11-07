@@ -95,3 +95,21 @@ async def test_geocoder_does_not_receive_unlabelled_passenger_tail(monkeypatch):
             is None
         )
     lookup.assert_not_called()
+
+
+async def test_airport_lookup_accepts_fare_suffix_but_rejects_a_different_airport():
+    point = await geocoding.resolve_ticket_place(
+        ParsedPlace("KAZAN KAZAN BASICS", iata="KZN"), TicketKind.PLANE
+    )
+    assert point is not None
+    assert point.name == "Kazan International Airport"
+    assert geocoding.airport_timezone("kzn") == "Europe/Moscow"
+    assert geocoding.airport_timezone("MOW") is None
+    assert geocoding.airport_timezone(None) is None
+    for name in ("London Gatwick", "London City"):
+        assert (
+            await geocoding.resolve_ticket_place(
+                ParsedPlace(name, iata="LHR"), TicketKind.PLANE
+            )
+            is None
+        )

@@ -1,8 +1,14 @@
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, time
 from enum import StrEnum
 from typing import Annotated, Literal
 
-from pydantic import StringConstraints, field_validator, model_validator
+from pydantic import (
+    AwareDatetime,
+    StringConstraints,
+    computed_field,
+    field_validator,
+    model_validator,
+)
 from sqlmodel import Field
 
 from app.models.base import Base
@@ -36,13 +42,42 @@ class TicketPlaceMatch(Base):
     point: TicketPoint | None = None
 
 
+class TicketTimeHint(Base):
+    month: int
+    day: int
+    local_time: time
+    local_date: date | None = None
+    time_zone: str | None = None
+
+
+class TicketIssue(Base):
+    field: Literal["departure", "arrival", "stay", "startedAt", "endedAt"]
+    code: Literal[
+        "point_required",
+        "start_required",
+        "date_required",
+        "timezone_required",
+        "outside_trip",
+        "ended_before_start",
+    ]
+    msg: str
+
+
 class TicketPreview(Base):
     kind: TicketKind
     departure: TicketPlaceMatch | None = None
     arrival: TicketPlaceMatch | None = None
     stay: TicketPlaceMatch | None = None
-    started_at: datetime | None = None
-    ended_at: datetime | None = None
+    started_at: AwareDatetime | None = None
+    ended_at: AwareDatetime | None = None
+    started_at_hint: TicketTimeHint | None = None
+    ended_at_hint: TicketTimeHint | None = None
+    issues: list[TicketIssue] = Field(default_factory=list)
+
+    @computed_field
+    @property
+    def ready_to_apply(self) -> bool:
+        return not self.issues
 
 
 class TicketTimes(Base):
@@ -51,13 +86,13 @@ class TicketTimes(Base):
 
     @field_validator("started_at", "ended_at")
     @classmethod
-    def validate_utc_range(cls, value: datetime | None) -> datetime | None:
-        if value is not None:
-            try:
-                value.astimezone(UTC)
-            except OverflowError as error:
-                raise ValueError("timestamp is out of range in UTC") from error
-        return value
+    def normalize_time(cls, value: datetime | None) -> datetime | None:
+        if value is None:
+            return None
+        try:
+            return value.astimezone(UTC)
+        except OverflowError as error:
+            raise ValueError("timestamp is out of range in UTC") from error
 
     @model_validator(mode="after")
     def validate_time_range(self):

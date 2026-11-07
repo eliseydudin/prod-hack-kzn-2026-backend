@@ -2,7 +2,7 @@ import re
 from collections import defaultdict
 from collections.abc import Callable, Hashable
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, time
 from unicodedata import normalize
 
 from app.models.ticket import TicketKind
@@ -92,6 +92,34 @@ _ROUTE_HEADING = re.compile(r"^(?:route|маршрут)[ \t]*[:=][ \t]*", re.IGN
 _IATA = re.compile(r"\b[A-Z]{3}\b")
 _IATA_PAREN = re.compile(r"\s*\(([A-Z]{3})\)\s*")
 _IATA_PAIR = re.compile(r"([A-Z]{3})(?:\s*(?:[-–—/→⇒]|->)\s*|[ \t]{2,})([A-Z]{3})")
+_BOARDING_ROUTE = re.compile(
+    r"^[ \t]*(?P<departure>From[ \t]*/[ \t]*От)[ \t]{2,}"
+    r"(?P<arrival>To[ \t]*/[ \t]*До)(?:[ \t]{2,}(?P<copy>To[ \t]*/[ \t]*До))?[ \t]*$",
+    re.IGNORECASE,
+)
+_BOARDING_PLACE = re.compile(r"(?P<name>[^/]+?)[ \t]*/[ \t]*(?P<iata>[A-Z]{3})")
+_BOARDING_DEPARTURE = re.compile(
+    r"^[ \t]*Carrier[ \t]*/[ \t]*Flight[ \t]*/?[ \t]{2,}"
+    r"(?P<date>Class[ \t]*/[ \t]*Date)[ \t]*/?[ \t]{2,}"
+    r"(?P<clock>Depart(?:ure)?[ \t]+time)\b",
+    re.IGNORECASE,
+)
+_BOARDING_DATE = re.compile(r"(?:[A-Z][ \t]+)?(\d{1,2})[ \t]+([A-Z]{3})", re.IGNORECASE)
+_BOARDING_CLOCK = re.compile(r"[ \t]*(\d{1,2}:\d{2})(?=[ \t]{2,}|[ \t]*$)")
+_BOARDING_MONTHS = (
+    "JAN",
+    "FEB",
+    "MAR",
+    "APR",
+    "MAY",
+    "JUN",
+    "JUL",
+    "AUG",
+    "SEP",
+    "OCT",
+    "NOV",
+    "DEC",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,11 +130,19 @@ class ParsedPlace:
 
 
 @dataclass(frozen=True, slots=True)
+class ParsedBoardingTime:
+    month: int
+    day: int
+    local_time: time
+
+
+@dataclass(frozen=True, slots=True)
 class ParsedTicket:
     kind: TicketKind
     places: tuple[ParsedPlace, ...]
     started_at: datetime | None = None
     ended_at: datetime | None = None
+    started_at_hint: ParsedBoardingTime | None = None
 
 
 class TicketParseError(ValueError):
@@ -348,9 +384,83 @@ def _transport(
     )
 
 
+def _boarding_place(rows: list[str], start: int, end: int | None) -> ParsedPlace | None:
+    value = ""
+    for row in rows:
+        value = _compact(f"{value} {row[start:end]}")
+        if match := _BOARDING_PLACE.fullmatch(value):
+            name = _compact(match["name"])
+            if 0 < len(name) <= 128 and not has_private_place_data(name):
+                return ParsedPlace(name, iata=match["iata"])
+    return None
+
+
+def _boarding_times(lines: list[str]) -> list[ParsedBoardingTime]:
+    hints = []
+    for index, line in enumerate(lines):
+        if not (header := _BOARDING_DEPARTURE.match(line)):
+            continue
+        date_start, clock_start = header.start("date"), header.start("clock")
+        for row in lines[index + 1 : index + 4]:
+            day = _BOARDING_DATE.fullmatch(row[date_start:clock_start].strip())
+            clock = _BOARDING_CLOCK.match(row[clock_start : clock_start + 20])
+            if day is None or clock is None:
+                continue
+            try:
+                month = _BOARDING_MONTHS.index(day[2].upper()) + 1
+                day_number = date(2000, month, int(day[1])).day
+                local_time = time.fromisoformat(clock[1].zfill(5))
+            except ValueError:
+                continue
+            hints.append(ParsedBoardingTime(month, day_number, local_time))
+    return hints
+
+
+def _boarding_pass(lines: list[str]) -> ParsedTicket | None:
+    headers = [
+        (index, header)
+        for index, line in enumerate(lines)
+        if (header := _BOARDING_ROUTE.fullmatch(line))
+    ]
+    routes = []
+    hints = []
+    for (index, header), end in zip(
+        headers, [index for index, _ in headers[1:]] + [len(lines)]
+    ):
+        rows = lines[index + 1 : min(index + 3, end)]
+        arrival_start = header.start("arrival")
+        copy_start = header.start("copy") if header["copy"] else None
+        departure = _boarding_place(rows, header.start("departure"), arrival_start)
+        arrival = _boarding_place(rows, arrival_start, copy_start)
+        if not departure or not arrival:
+            continue
+        copy = (
+            _boarding_place(rows, copy_start, None) if copy_start is not None else None
+        )
+        if copy and copy.iata != arrival.iata:
+            raise TicketParseError("ticket_route_ambiguous")
+        routes.append((departure, arrival))
+        hints.extend(_boarding_times(lines[index + 1 : end]))
+
+    error = "ticket_route_ambiguous"
+    route = _only(routes, lambda pair: tuple(map(_identity, pair)), error)
+    if route is None:
+        return None
+    if len(routes) != len(headers) or route[0].iata == route[1].iata:
+        raise TicketParseError(error)
+    return ParsedTicket(
+        TicketKind.PLANE, route, started_at_hint=_only(hints, lambda hint: hint, error)
+    )
+
+
 def parse_ticket(text: str, kind_hint: TicketKind | None = None) -> ParsedTicket:
     text = normalize("NFKC", text)
-    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    layout_lines = [line for line in text.splitlines() if line.strip()]
+    if boarding_pass := _boarding_pass(layout_lines):
+        if kind_hint not in (None, TicketKind.PLANE):
+            raise TicketParseError("ticket_kind_mismatch")
+        return boarding_pass
+    lines = [line.strip() for line in layout_lines]
     fields = _fields(lines)
     kind = _kind(text, lines, fields, kind_hint)
     if kind == TicketKind.STAY:

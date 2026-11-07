@@ -8,6 +8,7 @@ from app.database.connection import SessionDep
 from app.models.ticket import (
     TicketApplyRequest,
     TicketApplyResult,
+    TicketIssue,
     TicketKind,
     TicketPlaceMatch,
     TicketPreview,
@@ -18,6 +19,7 @@ from app.tickets.crud import apply_ticket
 from app.tickets.geocoding import resolve_ticket_place
 from app.tickets.parser import TicketParseError, parse_ticket
 from app.tickets.source import TicketSourceError, read_ticket_text
+from app.tickets.timing import prepare_ticket_preview
 from app.trips.crud import get_owned_trip
 
 router = APIRouter(prefix="/trips/{tripId}/tickets", tags=["tickets"])
@@ -33,7 +35,8 @@ async def post_ticket_preview(
     url: Annotated[str | None, Form()] = None,
     kind: Annotated[TicketKind | None, Form()] = None,
 ) -> TicketPreview:
-    await get_owned_trip(session, user, trip_id)
+    trip = await get_owned_trip(session, user, trip_id)
+    trip_start, trip_end = trip.started_on, trip.ended_on
     await session.rollback()
     try:
         parsed = parse_ticket(await read_ticket_text(file, url), kind)
@@ -47,13 +50,20 @@ async def post_ticket_preview(
         TicketPlaceMatch.model_validate(place, update={"point": point})
         for place, point in zip(parsed.places, points, strict=True)
     ]
-    preview = TicketPreview(
-        kind=parsed.kind, started_at=parsed.started_at, ended_at=parsed.ended_at
-    )
+    preview = prepare_ticket_preview(parsed, trip_start, trip_end)
     if parsed.kind == TicketKind.STAY:
         preview.stay = places[0]
+        fields = ("stay",)
     else:
         preview.departure, preview.arrival = places
+        fields = ("departure", "arrival")
+    preview.issues.extend(
+        TicketIssue(
+            field=field, code="point_required", msg=f"Confirm the {field} point"
+        )
+        for field, place in zip(fields, places, strict=True)
+        if place.point is None
+    )
     response.headers["Cache-Control"] = "no-store"
     return preview
 

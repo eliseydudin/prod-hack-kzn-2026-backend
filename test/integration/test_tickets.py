@@ -83,6 +83,19 @@ async def test_ticket_apply_saves_owned_transfer_and_stay_once(ticket_session: S
                 trip.id,
                 flight.model_copy(update={"ended_at": None, "started_at": started_at}),
             )
+    for change, field in (
+        (
+            {"started_at": datetime.fromisoformat("2026-12-10T01:00:00+03:00")},
+            "startedAt",
+        ),
+        ({"ended_at": datetime(2026, 12, 14, tzinfo=UTC)}, "endedAt"),
+    ):
+        with pytest.raises(ValidationError) as rejected:
+            await apply_ticket(
+                session, owner, trip.id, flight.model_copy(update=change)
+            )
+        assert rejected.value.errors[0]["field"] == field
+        assert rejected.value.errors[0]["code"] == "outside_trip"
     assert await list_points(session, owner, trip.id) == []
 
     saved = await apply_ticket(session, owner, trip.id, flight)
