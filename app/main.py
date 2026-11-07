@@ -13,6 +13,14 @@ from app.auth.router import change_password
 from app.auth.router import router as auth_router
 from app.database import get_session_ctx, setup_tables
 from app.events.router import router as events_router
+from app.integrations.google_drive.logging import setup_drive_logging
+from app.integrations.google_drive.middleware import (
+    DriveUploadLimit,
+    GoogleDriveMiddleware,
+    handle_upload_limit,
+)
+from app.integrations.google_drive.router import callback as google_drive_callback
+from app.integrations.google_drive.router import router as google_drive_router
 from app.models.status import Status
 from app.points.router import router as points_router
 from app.push.router import router as push_router
@@ -36,6 +44,7 @@ def generate_unique_name(route: APIRoute):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     setup_logger(logger)
+    setup_drive_logging()
     await setup_tables()
     async with get_session_ctx() as sesh:
         await create_bootstrap_user(sesh)
@@ -63,6 +72,10 @@ for router in (trips_router, points_router, transfers_router, events_router):
         responses=responses(RateLimitError),
     )
 app.include_router(push_router)
+
+app.include_router(google_drive_router)
+app.add_middleware(GoogleDriveMiddleware, config=settings)
+app.add_exception_handler(DriveUploadLimit, handle_upload_limit)
 
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
@@ -102,7 +115,7 @@ async def handle_http_exceptions(_app, error: HTTPException):
 @app.exception_handler(RequestValidationError)
 async def handle_validation_error(request: Request, error: RequestValidationError):
     validation_error = ValidationError.from_fastapi(error)
-    if request.scope.get("endpoint") is change_password:
+    if request.scope.get("endpoint") in (change_password, google_drive_callback):
         validation_error.errors = [
             {key: value for key, value in item.items() if key != "input"}
             for item in validation_error.errors

@@ -2,9 +2,11 @@ from os import path
 from pathlib import Path
 from random import randint
 
+from cryptography.fernet import Fernet
 from pydantic import (
     BaseModel,
     Field,
+    HttpUrl,
     PositiveInt,
     RedisDsn,
     SecretStr,
@@ -44,6 +46,14 @@ class Settings(BaseSettings):
     domain: str | None = None
     cookie_domain: str | None = None
 
+    google_drive_enabled: bool = False
+    google_drive_client_id: str | None = None
+    google_drive_client_secret: SecretStr | None = None
+    google_drive_redirect_uri: HttpUrl | None = None
+    google_drive_token_encryption_key: SecretStr | None = None
+    google_drive_return_path: str = "/dashboard"
+    google_drive_max_photo_bytes: int = Field(default=10_000_000, ge=1, le=20_000_000)
+
     bootstrap_username: str | None = None
     bootstrap_password: str | None = None
     push_vapid_key_file: Path | None = Field(
@@ -71,6 +81,55 @@ class Settings(BaseSettings):
         if (self.bootstrap_password is None) != (self.bootstrap_username is None):
             raise ValueError("invalid bootstrap admin credentials")
 
+        return self
+
+    @model_validator(mode="after")
+    def validate_google_drive(self):
+        if not self.google_drive_enabled:
+            return self
+        if not all(
+            (
+                self.google_drive_client_id,
+                self.google_drive_client_secret,
+                self.google_drive_redirect_uri,
+                self.google_drive_token_encryption_key,
+            )
+        ):
+            raise ValueError(
+                "Google Drive requires OAuth credentials, redirect URI and encryption key"
+            )
+        uri = self.google_drive_redirect_uri
+        if uri.scheme != "https" and uri.host not in (
+            "localhost",
+            "127.0.0.1",
+            "[::1]",
+        ):
+            raise ValueError(
+                "Google Drive redirect URI requires HTTPS outside localhost"
+            )
+        if uri.username or uri.password or uri.query or uri.fragment:
+            raise ValueError("Google Drive redirect URI must be a plain callback URL")
+        callback = "/api/v1/integrations/google-drive/callback"
+        if uri.path not in (callback, callback.removeprefix("/api/v1")):
+            raise ValueError(
+                "Google Drive redirect URI must point to its callback route"
+            )
+        if (
+            not self.google_drive_return_path.startswith("/")
+            or self.google_drive_return_path.startswith("//")
+            or any(
+                c
+                not in "/-_.abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+                for c in self.google_drive_return_path
+            )
+        ):
+            raise ValueError("Google Drive return path must be a local absolute path")
+        try:
+            Fernet(self.google_drive_token_encryption_key.get_secret_value().encode())
+        except ValueError, TypeError:
+            raise ValueError(
+                "Google Drive encryption key must be a Fernet key"
+            ) from None
         return self
 
 
