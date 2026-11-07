@@ -18,6 +18,7 @@ from app.responses import (
     AuthorizationError,
     ConflictError,
     Content,
+    ForbiddenError,
     NotFoundError,
     PayloadTooLargeError,
     ServiceUnavailableError,
@@ -198,7 +199,9 @@ async def get_trip_cover(
 @router.delete(
     "/{trip_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    responses=responses(AuthorizationError, NotFoundError, ConflictError),
+    responses=responses(
+        AuthorizationError, NotFoundError, ForbiddenError, ConflictError
+    ),
 )
 async def remove_trip(
     trip_id: Annotated[SnowflakeId, Path(gt=0)],
@@ -206,7 +209,7 @@ async def remove_trip(
     user: CurrentUser,
     storage: StorageDep,
 ) -> None:
-    await delete_trip(session, user, trip_id)
+    await delete_trip(session, user, trip_id, storage=storage)
 
 
 @router.post(
@@ -218,7 +221,7 @@ async def generate_code(
     trip_id: Annotated[SnowflakeId, Path(gt=0)],
     session: SessionDep,
     user: CurrentUser,
-    max_uses: int = Query(default=10, ge=0, le=100),
+    max_uses: int = Query(default=10, ge=1, le=100),
 ) -> TripInviteLink:
     return await generate_trip_invite_link(session, user, trip_id, max_uses)
 

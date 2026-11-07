@@ -6,7 +6,6 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
 from starlette.concurrency import run_in_threadpool
-from starlette.responses import JSONResponse
 
 from app.admin.router import router as admin_router
 from app.auth.impl import create_bootstrap_user
@@ -19,6 +18,7 @@ from app.points.router import router as points_router
 from app.push.router import router as push_router
 from app.rate_limit import limit_user_requests, rate_limit_lifespan
 from app.responses import HTTPException, RateLimitError, ValidationError, responses
+from app.responses.json import ErrorResponse
 from app.settings import settings
 from app.storage import setup_storage
 from app.transfers.router import router as transfers_router
@@ -92,7 +92,7 @@ async def handle_http_exceptions(_app, error: HTTPException):
         if isinstance(error, RateLimitError)
         else None
     )
-    return JSONResponse(
+    return ErrorResponse(
         error.dump_python(),
         status_code=error.status_code,
         headers=headers,
@@ -107,7 +107,7 @@ async def handle_validation_error(request: Request, error: RequestValidationErro
             {key: value for key, value in item.items() if key != "input"}
             for item in validation_error.errors
         ]
-    return JSONResponse(
+    return ErrorResponse(
         validation_error.dump_python(),
         status_code=ValidationError.status_code,
     )

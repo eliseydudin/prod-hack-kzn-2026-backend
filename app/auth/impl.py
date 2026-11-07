@@ -69,10 +69,12 @@ async def _login_inner(session: Session, username: str, password: str):
     try:
         user = await users.get_user_by_username(session, username)
         if not user:
-            check_dummy_hash()
+            await run_in_threadpool(check_dummy_hash)
             raise NotFoundError
 
-        if user.password and check_password(user.password, password):
+        if user.password and await run_in_threadpool(
+            check_password, user.password, password
+        ):
             return user
 
         raise NotFoundError

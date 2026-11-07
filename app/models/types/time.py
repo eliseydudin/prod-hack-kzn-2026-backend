@@ -1,7 +1,7 @@
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Optional
 
-from pydantic import AwareDatetime, PlainSerializer
+from pydantic import AfterValidator, AwareDatetime, PlainSerializer
 from sqlmodel import TIMESTAMP, Column, Field, func
 
 
@@ -20,7 +20,14 @@ def datetime_to_ms(dt: datetime) -> int:
     return int(dt.timestamp() * 1000.0)
 
 
-Timestamp = AwareDatetime
+def normalize_utc(value: datetime) -> datetime:
+    try:
+        return value.astimezone(UTC)
+    except OverflowError, ValueError:
+        raise ValueError("timestamp is outside the supported UTC range") from None
+
+
+Timestamp = Annotated[AwareDatetime, AfterValidator(normalize_utc)]
 IntTimestamp = Annotated[Timestamp, PlainSerializer(datetime_to_int)]
 IntTimestampMs = Annotated[Timestamp, PlainSerializer(datetime_to_ms)]
 

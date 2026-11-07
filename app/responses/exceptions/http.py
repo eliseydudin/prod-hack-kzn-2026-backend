@@ -111,7 +111,16 @@ class ValidationError(HTTPException):
 
     @classmethod
     def from_fastapi(cls, validation_error: RequestValidationError):
-        return ValidationError(errors=validation_error.errors())
+        return cls(
+            errors=[
+                {
+                    key: value
+                    for key, value in item.items()
+                    if key not in {"input", "ctx"}
+                }
+                for item in validation_error.errors()
+            ]
+        )
 
 
 @dataclass(kw_only=True, config={"alias_generator": to_camel})

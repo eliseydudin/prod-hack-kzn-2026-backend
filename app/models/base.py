@@ -1,6 +1,7 @@
 from typing import Optional
 from uuid import UUID, uuid4
 
+from pydantic import field_validator
 from pydantic.alias_generators import to_camel
 from sqlalchemy.orm import declared_attr
 from sqlmodel import Field, SQLModel
@@ -14,7 +15,17 @@ class Base(SQLModel):
         "populate_by_name": True,
         "from_attributes": True,
         "regex_engine": "python-re",
+        "hide_input_in_errors": True,
     }
+
+    @field_validator("*", mode="after")
+    @classmethod
+    def validate_text(cls, value):
+        if isinstance(value, str) and any(
+            char == "\x00" or "\ud800" <= char <= "\udfff" for char in value
+        ):
+            raise ValueError("text contains unsupported Unicode characters")
+        return value
 
     @declared_attr  # type: ignore
     def __tablename__(cls) -> str:  # type: ignore

@@ -1,24 +1,32 @@
 from datetime import UTC, datetime, timedelta
 from functools import partial
-from random import Random
+from threading import Lock
 from typing import Optional
 
 from app.settings import settings
 
-RANDOM = Random()
+_lock = Lock()
+_state: dict[tuple[datetime, int], tuple[int, int]] = {}
 
 
 def generate_snowflake_id(epoch: Optional[datetime] = None):
     epoch = epoch or datetime.fromtimestamp(0, UTC)
-    assert epoch.tzinfo is not None
-
-    delta = datetime.now(UTC) - epoch
-    delta_as_ms = int(delta / timedelta(milliseconds=1))
-    delta_limited = delta_as_ms & 0b11111111111111111111111111111111111111111
-
-    unique_id = RANDOM.randint(0, 2**12 - 1)
-
-    return (delta_limited << (10 + 12)) | (settings.machine_id << 12) | unique_id
+    if epoch.utcoffset() is None:
+        raise ValueError("epoch must include a timezone")
+    machine_id = settings.machine_id
+    with _lock:
+        milliseconds = (datetime.now(UTC) - epoch) // timedelta(milliseconds=1)
+        previous, sequence = _state.get((epoch, machine_id), (-1, -1))
+        if milliseconds <= previous:
+            milliseconds, sequence = previous, sequence + 1
+            if sequence == 2**12:
+                milliseconds, sequence = milliseconds + 1, 0
+        else:
+            sequence = 0
+        if not 0 <= milliseconds < 2**41:
+            raise ValueError("timestamp is outside the Snowflake epoch range")
+        _state[(epoch, machine_id)] = (milliseconds, sequence)
+        return (milliseconds << 22) | (machine_id << 12) | sequence
 
 
 BASE_EPOCH = datetime(2015, 1, 1, tzinfo=UTC)

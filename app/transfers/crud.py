@@ -103,7 +103,7 @@ async def create_transfer(
     trip_id: SnowflakeId,
     request: CreateMovementRequest,
 ) -> Movement:
-    trip = await get_owned_trip(session, owner, trip_id)
+    trip = await get_owned_trip(session, owner, trip_id, lock=True)
     start, end = await _waypoints(session, trip, request)
     movement = MovementTable.model_validate(request.model_dump(exclude=_WAYPOINT_IDS))
     movement.starts_at_waypoint, movement.ends_at_waypoint = start, end
@@ -120,7 +120,7 @@ async def update_transfer(
     transfer_id: SnowflakeId,
     request: UpdateMovementRequest,
 ) -> Movement:
-    trip = await get_owned_trip(session, owner, trip_id)
+    trip = await get_owned_trip(session, owner, trip_id, lock=True)
     movement, start, end = await _get_transfer(session, trip, transfer_id)
     changes = {"starts_at_waypoint_id": start.id, "ends_at_waypoint_id": end.id}
     changes.update(request.model_dump(exclude_unset=True))
@@ -143,7 +143,7 @@ async def delete_transfer(
     trip_id: SnowflakeId,
     transfer_id: SnowflakeId,
 ) -> None:
-    trip = await get_owned_trip(session, owner, trip_id)
+    trip = await get_owned_trip(session, owner, trip_id, lock=True)
     movement, _, _ = await _get_transfer(session, trip, transfer_id)
     await session.delete(movement)
     await session.commit()

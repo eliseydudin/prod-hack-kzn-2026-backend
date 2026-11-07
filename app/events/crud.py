@@ -98,7 +98,7 @@ async def create_event(
     trip_id: SnowflakeId,
     request: CreateEventRequest,
 ) -> Event:
-    trip = await get_owned_trip(session, owner, trip_id)
+    trip = await get_owned_trip(session, owner, trip_id, lock=True)
     validate_trip_dates(trip, request)
     waypoint = await get_waypoint_in_trip(session, trip, request.waypoint_id)
     event = EventTable.model_validate(
@@ -117,7 +117,7 @@ async def update_event(
     event_id: SnowflakeId,
     request: UpdateEventRequest,
 ) -> Event:
-    trip = await get_owned_trip(session, owner, trip_id)
+    trip = await get_owned_trip(session, owner, trip_id, lock=True)
     event = await get_event_in_trip(session, trip, event_id)
 
     changes = request.model_dump(exclude_unset=True, exclude={"waypoint_id"})
@@ -142,6 +142,6 @@ async def delete_event(
     trip_id: SnowflakeId,
     event_id: SnowflakeId,
 ) -> None:
-    trip = await get_owned_trip(session, owner, trip_id)
+    trip = await get_owned_trip(session, owner, trip_id, lock=True)
     await session.delete(await get_event_in_trip(session, trip, event_id))
     await session.commit()

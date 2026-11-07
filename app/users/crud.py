@@ -2,6 +2,7 @@ from collections.abc import Callable
 
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import col, select
+from starlette.concurrency import run_in_threadpool
 
 from app.database import Session
 from app.models.types.snowflake_id import SnowflakeId
@@ -25,13 +26,12 @@ async def get_user_by_id(
     id: SnowflakeId,
     check_enabled: bool = True,
 ):
-    query = select(UserTable).where(UserTable.id == id)
-    user = await session.scalar(query)
-
-    if user:
-        if not user.enabled and check_enabled:
-            return None
-        return user
+    query = select(UserTable).where(UserTable.id == id).limit(2)
+    users = (await session.scalars(query)).all()
+    if len(users) != 1:
+        return None
+    user = users[0]
+    return user if user.enabled or not check_enabled else None
 
 
 async def get_bootstrap_user(session: Session):
@@ -61,7 +61,7 @@ async def create_user(
     user = UserTable.model_validate(
         request,
         update={
-            "password": hasher(request.password),
+            "password": await run_in_threadpool(hasher, request.password),
         },
     )
     try:
