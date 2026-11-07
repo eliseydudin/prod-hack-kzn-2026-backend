@@ -11,6 +11,7 @@ from app.admin.router import router as admin_router
 from app.auth.impl import create_bootstrap_user
 from app.auth.router import router as auth_router
 from app.database import get_session_ctx, setup_tables
+from app.events.router import router as events_router
 from app.models.status import Status
 from app.points.router import router as points_router
 from app.responses import HTTPException, ValidationError, responses
@@ -49,6 +50,7 @@ app.include_router(admin_router)
 app.include_router(trips_router)
 app.include_router(points_router)
 app.include_router(transfers_router)
+app.include_router(events_router)
 
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
