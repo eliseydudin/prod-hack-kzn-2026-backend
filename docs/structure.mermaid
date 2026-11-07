@@ -1,0 +1,19 @@
+flowchart LR
+	subgraph Docker
+		Backend
+		Frontend
+		DB[(PostgreSQL)]
+		Cache[(Valkey)]
+		Proxy[Nginx]
+		Certbot
+	end
+
+	User[User]
+
+	User --> Proxy
+	Proxy --> Backend
+	Proxy --> Frontend
+	Proxy --> Certbot
+	Frontend --> Backend
+	Backend --> DB
+	Backend --> Cache
