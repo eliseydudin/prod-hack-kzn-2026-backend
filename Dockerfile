@@ -26,7 +26,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 FROM alpine:3.24 AS production
 
 RUN --mount=type=cache,target=/var/cache/apk \
-  apk add curl bash
+  apk add curl bash tzdata
 
 RUN addgroup --system --gid 1001 nonroot
 RUN adduser --system \ 

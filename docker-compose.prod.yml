@@ -13,6 +13,8 @@ x-app: &app
     DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:?}:${POSTGRES_PASSWORD:?}@db:5432/${POSTGRES_DB:?}
     JWT_TOKEN: ${JWT_TOKEN}
     REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+    PUSH__VAPID_KEY_FILE: /var/lib/app/vapid/private_key.pem
+    PUSH__VAPID_SUBJECT: ${PUSH__VAPID_SUBJECT:-https://${DOMAIN:?DOMAIN is required}}
 
     FORWARDED_ALLOW_IPS: "${FORWARDED_ALLOW_IPS:-*}"
 
@@ -46,8 +48,12 @@ services:
         "--maxmemory",
         "256mb",
         "--maxmemory-policy",
-        "allkeys-lru",
+        "volatile-lru",
+        "--appendonly",
+        "yes",
       ]
+    volumes:
+      - redis-data:/data
     healthcheck:
       test: ["CMD", "valkey-cli", "ping"]
       interval: 5s
@@ -67,75 +73,32 @@ services:
       RATE_LIMIT_REGISTER:
       RATE_LIMIT_REFRESH:
       RATE_LIMIT_USER:
+    volumes:
+      - vapid:/var/lib/app/vapid
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
+      worker:
+        condition: service_started
     restart: unless-stopped
 
-  # worker:
-  #   <<: *app
-  #   command:
-  #     [
-  #       "taskiq",
-  #       "worker",
-  #       "app.worker.entry:broker",
-  #       "--no-configure-logging",
-  #       "--workers",
-  #       "1",
-  #       "--wait-tasks-timeout",
-  #       "30",
-  #     ]
-  #   # Longer than --wait-tasks-timeout: Docker's default 10 s would cut the running task.
-  #   stop_grace_period: 35s
-  #   environment:
-  #     <<: *app-environment
-  #     PUSH__VAPID_KEY_FILE: /var/lib/app/vapid/private_key.pem
-  #     # Contact for push services: by default the site itself.
-  #     PUSH__VAPID_SUBJECT: ${PUSH__VAPID_SUBJECT:-https://${DOMAIN:?DOMAIN is required}}
-  #   volumes:
-  #     - vapid:/var/lib/app/vapid
-  #   depends_on:
-  #     db:
-  #       condition: service_healthy
-  #     redis:
-  #       condition: service_healthy
-  #   healthcheck:
-  #     # Touched on start and after every successful run (every 15 s): stale means no
-  #     # deliveries, whether the worker, the scheduler, Redis or Postgres is the cause.
-  #     test:
-  #       [
-  #         "CMD",
-  #         "python",
-  #         "-c",
-  #         "import os, sys, time; sys.exit(time.time() - os.path.getmtime('/tmp/worker-heartbeat') > 60)",
-  #       ]
-  #     interval: 15s
-  #     timeout: 3s
-  #     start_period: 20s
-  #     retries: 3
-  #   restart: unless-stopped
+  worker:
+    <<: *app
+    command: ["celery", "-A", "app.push.worker:celery", "worker", "--loglevel=INFO", "--concurrency=1"]
+    volumes:
+      - vapid:/var/lib/app/vapid:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    stop_grace_period: 30s
+    restart: unless-stopped
 
-  # Puts a wake-up message for the worker into Redis every 15 s. Exactly one is
-  # enough; a second one would only cause empty runs.
-  # scheduler:
-  #   <<: *app
-  #   command:
-  #     [
-  #       "taskiq",
-  #       "scheduler",
-  #       "app.worker.entry:scheduler",
-  #       "--no-configure-logging",
-  #     ]
-  #   # The image's HEALTHCHECK probes the api's HTTP port; the scheduler has none. If
-  #   # it dies, the container restarts; stalled deliveries show up in the worker's health.
-  #   healthcheck:
-  #     disable: true
-  #   depends_on:
-  #     redis:
-  #       condition: service_healthy
-  #   restart: unless-stopped
   migrate:
     <<: *app
     command: ["alembic", "upgrade", "head"]
@@ -223,8 +186,9 @@ services:
 
 volumes:
   pg-data:
+  redis-data:
   letsencrypt: # certbot account and certificates: keep it, re-issuing is rate-limited
   acme-webroot:
   tls:
   vector-data: # Vector's checkpoints and buffers, safe to lose
-  # vapid: # the VAPID key pair of the worker: losing it breaks every push subscription
+  vapid:

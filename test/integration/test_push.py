@@ -1,6 +1,7 @@
 import json
 from base64 import urlsafe_b64encode
 from os import urandom
+from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
 import pytest
@@ -12,11 +13,16 @@ from cryptography.hazmat.primitives.serialization import (
     PublicFormat,
 )
 from http_ece import decrypt
+from httpx import ASGITransport, AsyncClient
+from kombu.exceptions import OperationalError
+from pydantic import RedisDsn
 from requests import PreparedRequest, Response
 from requests.adapters import HTTPAdapter
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from app.database import Session
+from app.auth.tokens import get_current_user
+from app.database import Session, get_session
+from app.main import app
 from app.models.push_subscription import CreatePushSubscriptionRequest
 from app.models.user import UserTable
 from app.push.service import (
@@ -25,6 +31,7 @@ from app.push.service import (
     register_subscription,
     send_test_notification,
 )
+from app.rate_limit import get_rate_limiter
 from app.responses import (
     ConflictError,
     GoneError,
@@ -141,3 +148,38 @@ async def test_push_subscription_lifecycle(
     await delete_subscription(push_session, owner_id, registered.id)
     with pytest.raises(NotFoundError):
         await send_test_notification(push_session, owner_id, registered.id)
+
+
+async def test_push_endpoint_queues_only_owned_subscriptions(monkeypatch):
+    user = UserTable(primary_key=1, username="push-owner")
+    monkeypatch.setitem(app.dependency_overrides, get_current_user, lambda: user)
+    monkeypatch.setitem(app.dependency_overrides, get_session, lambda: None)
+    monkeypatch.setitem(app.dependency_overrides, get_rate_limiter, lambda: None)
+    monkeypatch.setattr(settings, "redis_url", RedisDsn("redis://localhost:6379/0"))
+    monkeypatch.setattr("app.push.router.get_vapid_public_key", Mock())
+    lookup = AsyncMock(side_effect=NotFoundError)
+    monkeypatch.setattr("app.push.router.get_subscription", lookup)
+    publish = Mock()
+    monkeypatch.setattr(
+        "app.push.worker.deliver_test_notification.apply_async", publish
+    )
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://testserver"
+    ) as client:
+        url = "/api/v1/push/test"
+        request = {"subscriptionId": "42"}
+        assert (await client.post(url, json=request)).status_code == 404
+        lookup.assert_awaited_once_with(None, 1, 42)
+        publish.assert_not_called()
+
+        lookup.side_effect = None
+        response = await client.post(url, json=request)
+        assert response.status_code == 202
+        assert not response.content
+        publish.assert_called_once_with(args=(1, 42), expires=300, retry=False)
+
+        publish.side_effect = OperationalError
+        response = await client.post(url, json=request)
+        assert response.status_code == 503
+        assert response.json()["detail"]["reason"] == "push_queue_unavailable"

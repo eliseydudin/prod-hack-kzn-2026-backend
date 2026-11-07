@@ -127,9 +127,9 @@ def _send_test_push(endpoint: str, p256dh: str, auth: str) -> bool:
     return True
 
 
-async def send_test_notification(
+async def get_subscription(
     session: Session, owner_id: int, subscription_id: int
-) -> None:
+) -> PushSubscriptionTable:
     subscription = await session.scalar(
         select(PushSubscriptionTable).where(
             PushSubscriptionTable.owner_id == owner_id,
@@ -138,7 +138,13 @@ async def send_test_notification(
     )
     if subscription is None:
         raise NotFoundError
+    return subscription
 
+
+async def send_test_notification(
+    session: Session, owner_id: int, subscription_id: int
+) -> None:
+    subscription = await get_subscription(session, owner_id, subscription_id)
     sent = await run_in_threadpool(
         _send_test_push, subscription.endpoint, subscription.p256dh, subscription.auth
     )
