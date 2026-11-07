@@ -36,6 +36,21 @@ services:
             timeout: 3s
             retries: 20
 
+    rustfs:
+        image: rustfs/rustfs:1.0.4
+        environment:
+            RUSTFS_ACCESS_KEY: ${STORAGE__ACCESS_KEY:-travelhub-dev}
+            RUSTFS_SECRET_KEY: ${STORAGE__SECRET_KEY:-travelhub-dev-secret}
+            RUSTFS_CONSOLE_ENABLE: "false"
+        ports: ["127.0.0.1:9000:9000"]
+        volumes:
+            - rustfs-data:/data
+        healthcheck:
+            test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/health/ready"]
+            interval: 3s
+            timeout: 3s
+            retries: 20
+
     migrate:
         build:
             context: .
@@ -61,6 +76,11 @@ services:
             RATE_LIMIT_REGISTER:
             RATE_LIMIT_REFRESH:
             RATE_LIMIT_USER:
+            STORAGE__ENDPOINT: rustfs:9000
+            STORAGE__ACCESS_KEY: ${STORAGE__ACCESS_KEY:-travelhub-dev}
+            STORAGE__SECRET_KEY: ${STORAGE__SECRET_KEY:-travelhub-dev-secret}
+            STORAGE__BUCKET:
+            STORAGE__SECURE: "false"
             PUSH__VAPID_KEY_FILE: /var/lib/app/vapid/private_key.pem
         volumes:
             - vapid:/var/lib/app/vapid
@@ -68,6 +88,8 @@ services:
             migrate:
                 condition: service_completed_successfully
             redis:
+                condition: service_healthy
+            rustfs:
                 condition: service_healthy
 
     # worker:
@@ -132,4 +154,5 @@ services:
 
 volumes:
     pg-data:
+    rustfs-data:
     vapid:  # the VAPID key pair: browsers subscribed with its public key

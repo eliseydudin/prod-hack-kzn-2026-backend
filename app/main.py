@@ -5,6 +5,7 @@ from fastapi import Depends, FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
+from starlette.concurrency import run_in_threadpool
 from starlette.responses import JSONResponse
 
 from app.admin.router import router as admin_router
@@ -17,6 +18,7 @@ from app.points.router import router as points_router
 from app.rate_limit import limit_user_requests, rate_limit_lifespan
 from app.responses import HTTPException, RateLimitError, ValidationError, responses
 from app.settings import settings
+from app.storage import setup_storage
 from app.transfers.router import router as transfers_router
 from app.trips.router import router as trips_router
 from app.utils.logger import setup_logger
@@ -30,11 +32,15 @@ def generate_unique_name(route: APIRoute):
 
 
 @asynccontextmanager
-async def lifespan(_app: FastAPI):
+async def lifespan(app: FastAPI):
     setup_logger(logger)
     await setup_tables()
     async with get_session_ctx() as sesh:
         await create_bootstrap_user(sesh)
+
+    app.state.storage = None
+    if settings.storage is not None:
+        app.state.storage = await run_in_threadpool(setup_storage, settings.storage)
 
     async with rate_limit_lifespan():
         logger.info("Setup complete")

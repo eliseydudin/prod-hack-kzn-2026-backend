@@ -1,17 +1,38 @@
 from os import path
 from random import randint
 
-from pydantic import Field, PositiveInt, RedisDsn, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    PositiveInt,
+    RedisDsn,
+    SecretStr,
+    field_validator,
+    model_validator,
+)
 from pydantic_extra_types.dsn import PostgresDsn
 from pydantic_settings import BaseSettings
 
 
+class StorageSettings(BaseModel):
+    endpoint: str = Field(min_length=1)
+    access_key: SecretStr = Field(min_length=1)
+    secret_key: SecretStr = Field(min_length=1)
+    bucket: str = "travelhub"
+    secure: bool = True
+
+
 class Settings(BaseSettings):
-    model_config = {"env_file": ".env" if path.exists(".env") else None}
+    model_config = {
+        "env_file": ".env" if path.exists(".env") else None,
+        "env_nested_delimiter": "__",
+        "hide_input_in_errors": True,
+    }
 
     database_url: PostgresDsn
     jwt_token: str
     redis_url: RedisDsn | None = None
+    storage: StorageSettings | None = None
 
     rate_limit_window_seconds: PositiveInt = 60
     rate_limit_login: PositiveInt = 10
