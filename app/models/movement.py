@@ -1,8 +1,7 @@
-from datetime import UTC, datetime
-from typing import Annotated, ClassVar
+from datetime import UTC
 
-from pydantic import AwareDatetime, ConfigDict, field_validator, model_validator
-from pydantic_core import MISSING, PydanticCustomError
+from pydantic import field_validator, model_validator
+from pydantic_core import MISSING
 from sqlmodel import Field, Relationship
 
 from app.models.base import Base, PrimaryKeyBase, SnowflakeIdBase
@@ -56,38 +55,31 @@ class Movement(MovementExtraBase):
     ends_at_waypoint_id: SnowflakeId
 
 
-WaypointId = Annotated[SnowflakeId, Field(gt=0, le=9223372036854775807)]
-
-
 class CreateMovementRequest(MovementBase):
-    model_config: ClassVar[ConfigDict] = {"extra": "forbid"}
-
-    started_at: AwareDatetime
-    ended_at: AwareDatetime | None = None
-    starts_at_waypoint_id: WaypointId
-    ends_at_waypoint_id: WaypointId
+    starts_at_waypoint_id: SnowflakeId
+    ends_at_waypoint_id: SnowflakeId
 
     @field_validator("started_at", "ended_at")
     @classmethod
-    def normalize_time(cls, value: datetime | None) -> datetime | None:
-        return value.astimezone(UTC) if value is not None else None
+    def normalize_time(cls, value: Timestamp | None) -> Timestamp | None:
+        if value is None:
+            return None
+        if value.utcoffset() is None:
+            raise ValueError("timestamps must include a timezone")
+        return value.astimezone(UTC)
 
     @model_validator(mode="after")
     def validate_time_range(self):
         if self.ended_at is not None and self.ended_at < self.started_at:
-            raise PydanticCustomError(
-                "movement_time_range", "endedAt must be on or after startedAt"
-            )
+            raise ValueError("endedAt must be on or after startedAt")
         return self
 
 
 class UpdateMovementRequest(Base):
-    model_config: ClassVar[ConfigDict] = {"extra": "forbid"}
-
     transport_type: MaybeMissing[str] = Field(
         default=MISSING, min_length=1, max_length=128
     )
-    started_at: MaybeMissing[AwareDatetime]
-    ended_at: MaybeMissing[AwareDatetime | None]
-    starts_at_waypoint_id: MaybeMissing[WaypointId]
-    ends_at_waypoint_id: MaybeMissing[WaypointId]
+    started_at: MaybeMissing[Timestamp]
+    ended_at: MaybeMissing[Timestamp | None]
+    starts_at_waypoint_id: MaybeMissing[SnowflakeId]
+    ends_at_waypoint_id: MaybeMissing[SnowflakeId]

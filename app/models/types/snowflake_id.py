@@ -9,6 +9,7 @@ SnowflakeId = Annotated[
     int,
     Field(
         ge=0,
+        le=2**63 - 1,
         sa_type=BigInteger,
     ),
     PlainSerializer(str),

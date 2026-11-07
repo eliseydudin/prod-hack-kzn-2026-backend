@@ -1,10 +1,11 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Path, Response, status
+from fastapi import APIRouter, Path, status
 
 from app.auth.tokens import CurrentUser
 from app.database.connection import SessionDep
 from app.models.movement import CreateMovementRequest, Movement, UpdateMovementRequest
+from app.models.types.snowflake_id import SnowflakeId
 from app.responses import AuthorizationError, NotFoundError, responses
 from app.transfers.crud import (
     create_transfer,
@@ -15,13 +16,13 @@ from app.transfers.crud import (
 )
 
 router = APIRouter(prefix="/trips/{tripId}/transfers", tags=["transfers"])
-TripId = Annotated[int, Path(alias="tripId", gt=0, le=9223372036854775807)]
-TransferId = Annotated[int, Path(alias="transferId", gt=0, le=9223372036854775807)]
 
 
 @router.get("", responses=responses(AuthorizationError, NotFoundError))
 async def get_transfers(
-    trip_id: TripId, session: SessionDep, user: CurrentUser
+    trip_id: Annotated[SnowflakeId, Path(alias="tripId", gt=0)],
+    session: SessionDep,
+    user: CurrentUser,
 ) -> list[Movement]:
     return await list_transfers(session, user.primary_key, trip_id)
 
@@ -32,7 +33,7 @@ async def get_transfers(
     responses=responses(AuthorizationError, NotFoundError),
 )
 async def post_transfer(
-    trip_id: TripId,
+    trip_id: Annotated[SnowflakeId, Path(alias="tripId", gt=0)],
     request: CreateMovementRequest,
     session: SessionDep,
     user: CurrentUser,
@@ -42,15 +43,18 @@ async def post_transfer(
 
 @router.get("/{transferId}", responses=responses(AuthorizationError, NotFoundError))
 async def get_transfer_by_id(
-    trip_id: TripId, transfer_id: TransferId, session: SessionDep, user: CurrentUser
+    trip_id: Annotated[SnowflakeId, Path(alias="tripId", gt=0)],
+    transfer_id: Annotated[SnowflakeId, Path(alias="transferId", gt=0)],
+    session: SessionDep,
+    user: CurrentUser,
 ) -> Movement:
     return await get_transfer(session, user.primary_key, trip_id, transfer_id)
 
 
 @router.patch("/{transferId}", responses=responses(AuthorizationError, NotFoundError))
 async def patch_transfer(
-    trip_id: TripId,
-    transfer_id: TransferId,
+    trip_id: Annotated[SnowflakeId, Path(alias="tripId", gt=0)],
+    transfer_id: Annotated[SnowflakeId, Path(alias="transferId", gt=0)],
     request: UpdateMovementRequest,
     session: SessionDep,
     user: CurrentUser,
@@ -66,7 +70,9 @@ async def patch_transfer(
     responses=responses(AuthorizationError, NotFoundError),
 )
 async def remove_transfer(
-    trip_id: TripId, transfer_id: TransferId, session: SessionDep, user: CurrentUser
-) -> Response:
+    trip_id: Annotated[SnowflakeId, Path(alias="tripId", gt=0)],
+    transfer_id: Annotated[SnowflakeId, Path(alias="transferId", gt=0)],
+    session: SessionDep,
+    user: CurrentUser,
+) -> None:
     await delete_transfer(session, user.primary_key, trip_id, transfer_id)
-    return Response(status_code=status.HTTP_204_NO_CONTENT)

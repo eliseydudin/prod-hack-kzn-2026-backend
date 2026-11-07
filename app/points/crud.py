@@ -9,7 +9,7 @@ from app.models.waypoint import (
     Waypoint,
     WaypointTable,
 )
-from app.responses import ConflictError, NotFoundError
+from app.responses import ConflictError, ErrorCode, NotFoundError
 from app.trips.crud import get_owned_trip
 
 
@@ -84,4 +84,4 @@ async def delete_point(
         await session.commit()
     except IntegrityError as error:
         await session.rollback()
-        raise ConflictError(detail={"reason": "point_has_transfers"}) from error
+        raise ConflictError(error_code=ErrorCode.POINT_HAS_TRANSFERS) from error

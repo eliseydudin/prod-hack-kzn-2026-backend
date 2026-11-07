@@ -1,15 +1,15 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Path, Response, status
+from fastapi import APIRouter, Path, status
 
 from app.auth.tokens import CurrentUser
 from app.database.connection import SessionDep
 from app.models.trip import CreateTripRequest, Trip, UpdateTripRequest
+from app.models.types.snowflake_id import SnowflakeId
 from app.responses import AuthorizationError, ConflictError, NotFoundError, responses
 from app.trips.crud import create_trip, delete_trip, get_trip, list_trips, update_trip
 
 router = APIRouter(prefix="/trips", tags=["trips"])
-TripId = Annotated[int, Path(gt=0, le=9223372036854775807)]
 
 
 @router.get("", response_model=list[Trip], responses=responses(AuthorizationError))
@@ -37,7 +37,7 @@ async def post_trip(
     responses=responses(AuthorizationError, NotFoundError),
 )
 async def get_trip_by_id(
-    trip_id: TripId,
+    trip_id: Annotated[SnowflakeId, Path(gt=0)],
     session: SessionDep,
     user: CurrentUser,
 ) -> Trip:
@@ -50,7 +50,7 @@ async def get_trip_by_id(
     responses=responses(AuthorizationError, NotFoundError),
 )
 async def patch_trip(
-    trip_id: TripId,
+    trip_id: Annotated[SnowflakeId, Path(gt=0)],
     request: UpdateTripRequest,
     session: SessionDep,
     user: CurrentUser,
@@ -64,9 +64,8 @@ async def patch_trip(
     responses=responses(AuthorizationError, NotFoundError, ConflictError),
 )
 async def remove_trip(
-    trip_id: TripId,
+    trip_id: Annotated[SnowflakeId, Path(gt=0)],
     session: SessionDep,
     user: CurrentUser,
-) -> Response:
+) -> None:
     await delete_trip(session, user.primary_key, trip_id)
-    return Response(status_code=status.HTTP_204_NO_CONTENT)

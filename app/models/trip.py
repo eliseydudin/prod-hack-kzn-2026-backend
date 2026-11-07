@@ -1,16 +1,15 @@
 from datetime import date
-from typing import TYPE_CHECKING, Annotated, ClassVar
+from typing import TYPE_CHECKING, Annotated
 
 from pydantic import (
     AfterValidator,
-    ConfigDict,
     HttpUrl,
     StringConstraints,
     TypeAdapter,
     field_serializer,
     model_validator,
 )
-from pydantic_core import MISSING, PydanticCustomError
+from pydantic_core import MISSING
 from sqlmodel import Field, Relationship, String, Text
 
 from app.models.base import Base, PrimaryKeyBase, SnowflakeIdBase
@@ -48,9 +47,7 @@ class TripBase(Base):
     @model_validator(mode="after")
     def validate_date_range(self):
         if self.ended_on is not None and self.ended_on < self.started_on:
-            raise PydanticCustomError(
-                "trip_date_range", "endedOn must be on or after startedOn"
-            )
+            raise ValueError("endedOn must be on or after startedOn")
         return self
 
 
@@ -79,18 +76,8 @@ class Trip(TripExtraBase):
 class CreateTripRequest(TripBase):
     ended_on: date
 
-    model_config: ClassVar[ConfigDict] = {
-        **TripBase.model_config,
-        "extra": "forbid",
-    }
-
 
 class UpdateTripRequest(Base):
-    model_config: ClassVar[ConfigDict] = {
-        **Base.model_config,
-        "extra": "forbid",
-    }
-
     name: MaybeMissing[TrimmedText] = Field(
         default=MISSING, min_length=1, max_length=128
     )

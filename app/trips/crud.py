@@ -62,7 +62,7 @@ async def update_trip(
     try:
         TripBase.model_validate(trip, update=changes)
     except PydanticValidationError as error:
-        raise ValidationError(errors=error.errors()) from error
+        raise ValidationError(errors=error.errors(include_input=False)) from error
 
     trip.sqlmodel_update(changes)
     await session.commit()

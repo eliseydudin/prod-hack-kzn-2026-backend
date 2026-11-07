@@ -21,9 +21,10 @@ class ErrorCode(PascalCaseEnum):
     GOOGLE_INTERACTION_FAILED = auto()
     VALIDATION_FAILED = auto()
     USERNAME_IS_ALREADY_IN_USE = auto()
+    POINT_HAS_TRANSFERS = auto()
 
 
-@dataclass(kw_only=True, config={"alias_generator": to_camel})
+@dataclass(kw_only=True, config={"alias_generator": to_camel, "validate_by_name": True})
 class HTTPException(Exception):
     status_code: ClassVar[int] = 400
 
@@ -32,7 +33,9 @@ class HTTPException(Exception):
     error_code: ErrorCode = ErrorCode.ERROR_OCCURED
 
     def dump_python(self) -> Any:
-        return TypeAdapter(type(self)).dump_python(self, mode="json", by_alias=True)
+        return TypeAdapter(type(self)).dump_python(
+            self, mode="json", by_alias=True, fallback=str
+        )
 
 
 @dataclass

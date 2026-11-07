@@ -1,6 +1,6 @@
-from typing import Annotated, ClassVar
+from typing import Annotated
 
-from pydantic import ConfigDict, StringConstraints
+from pydantic import StringConstraints
 from pydantic_core import MISSING
 from sqlmodel import Field, Relationship
 
@@ -40,12 +40,10 @@ class Waypoint(WaypointExtraBase):
 
 
 class CreateWaypointRequest(WaypointBase):
-    model_config: ClassVar[ConfigDict] = {"extra": "forbid"}
+    pass
 
 
 class UpdateWaypointRequest(Base):
-    model_config: ClassVar[ConfigDict] = {"extra": "forbid"}
-
     latitude: MaybeMissing[float] = Field(default=MISSING, ge=-90.0, le=90.0)
     longitude: MaybeMissing[float] = Field(default=MISSING, ge=-180.0, le=180.0)
     name: MaybeMissing[str] = Field(default=MISSING, min_length=1, max_length=128)
