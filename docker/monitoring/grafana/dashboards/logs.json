@@ -7,7 +7,7 @@
   "time": {"from": "now-30m", "to": "now"},
   "refresh": "30s",
   "links": [
-    {"title": "Backend API", "type": "link", "url": "/d/backend-api", "includeVars": false, "keepTime": true}
+    {"type": "dashboards", "tags": ["backend", "api"], "includeVars": false, "keepTime": true}
   ],
   "templating": {
     "list": [
