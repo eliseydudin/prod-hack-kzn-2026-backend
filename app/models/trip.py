@@ -12,6 +12,7 @@ from pydantic_core import MISSING
 from sqlmodel import Field, Relationship, Text
 
 from app.models.base import Base, PrimaryKeyBase, SnowflakeIdBase
+from app.models.collaborator import CollaboratorTable
 from app.models.types.missing import MaybeMissing
 from app.models.types.time import CreatedAt, Timestamp, UpdatedAt
 from app.models.user import UserTable
@@ -59,6 +60,10 @@ class TripTable(TripExtraBase, PrimaryKeyBase, table=True):
     )
     waypoints: list[WaypointTable] = Relationship(
         back_populates="trip",
+        sa_relationship_kwargs={"lazy": "selectin"},
+    )
+    collaborators: list[UserTable] = Relationship(
+        link_model=CollaboratorTable,
         sa_relationship_kwargs={"lazy": "selectin"},
     )
 

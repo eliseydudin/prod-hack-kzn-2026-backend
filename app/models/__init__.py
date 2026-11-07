@@ -1,4 +1,5 @@
 from app.models.base import Base
+from app.models.collaborator import CollaboratorTable
 from app.models.event import EventTable
 from app.models.movement import MovementTable
 from app.models.trip import TripTable
@@ -7,6 +8,7 @@ from app.models.waypoint import WaypointTable
 
 __all__ = [
     "Base",
+    "CollaboratorTable",
     "UserIdentityTable",
     "UserTable",
     "TripTable",
