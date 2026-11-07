@@ -66,6 +66,8 @@ services:
     env_file:
       - path: .env.storage
         required: false
+      - path: .env.google-drive
+        required: false
     environment:
       <<: *app-environment
       RATE_LIMIT_WINDOW_SECONDS:

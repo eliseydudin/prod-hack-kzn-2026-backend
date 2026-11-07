@@ -70,6 +70,9 @@ services:
             context: .
             args:
                 APP_VERSION: dev
+        env_file:
+            - path: .env.google-drive
+              required: false
         environment:
             <<: *app-env
             FORWARDED_ALLOW_IPS: "${FORWARDED_ALLOW_IPS:-*}"

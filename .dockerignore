@@ -1,4 +1,5 @@
 # Git
+.env.google-drive
 .git
 .gitignore
 .gitattributes

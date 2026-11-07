@@ -1,6 +1,7 @@
 from app.models.base import Base
 from app.models.collaborator import CollaboratorTable
 from app.models.event import EventTable
+from app.models.google_drive import GoogleDriveConnectionTable, GoogleDriveExportTable
 from app.models.movement import MovementTable
 from app.models.push_subscription import PushSubscriptionTable
 from app.models.trip import TripTable
@@ -14,6 +15,8 @@ __all__ = [
     "UserTable",
     "TripTable",
     "EventTable",
+    "GoogleDriveConnectionTable",
+    "GoogleDriveExportTable",
     "MovementTable",
     "PushSubscriptionTable",
     "WaypointTable",

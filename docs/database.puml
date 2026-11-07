@@ -83,5 +83,44 @@ User ||--o{ Trip : owner
 Trip ||--o{ Waypoint
 Waypoint ||--o{ Movement : starts_at_waypoint, ends_at_waypoint
 Trip ||--o{ Event
+entity GoogleDriveConnection {
+    * primary_key <<generated>>
+    * user_id <<unique, FK User>>
+    * generation
+    * status
+    permission_id
+    email
+    refresh_token_encrypted <<Fernet>>
+    scopes
+    folder_id
+    * revocation_pending
+    oauth_state_hash <<unique>>
+    oauth_cookie_hash
+    oauth_expires_at <<timestamptz>>
+    * oauth_state_used
+}
+
+entity GoogleDriveExport {
+    * primary_key <<generated>>
+    * id <<snowflake>>
+    * user_id <<FK User>>
+    * connection_id <<FK GoogleDriveConnection>>
+    * connection_generation
+    * idempotency_key <<unique with user_id>>
+    * name
+    * mime_type
+    * size
+    * sha256
+    * md5
+    * status
+    * drive_file_id
+    web_view_link
+    error_reason
+    * created_at <<timestamptz>>
+}
+
+User ||--o| GoogleDriveConnection
+User ||--o{ GoogleDriveExport
+GoogleDriveConnection ||--o{ GoogleDriveExport
 
 @enduml
