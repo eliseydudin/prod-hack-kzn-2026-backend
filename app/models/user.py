@@ -1,5 +1,5 @@
 from enum import auto
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 from pydantic import field_validator, model_validator
 from sqlmodel import Field, Relationship
@@ -9,14 +9,9 @@ from app.models.base import (
     PrimaryKeyBase,
     SnowflakeIdBase,
 )
-from app.models.collaborator import CollaboratorTable
 from app.models.types.extra import Extra
 from app.models.types.pascal_case_enum import PascalCaseEnum
 from app.models.types.time import CreatedAt, Timestamp, UpdatedAt
-
-if TYPE_CHECKING:
-    from app.models.trip import TripTable
-
 
 USERNAME_REGEX = r"^[a-zA-Z0-9._]*$"
 USERNAME_EXAMPLES = [
@@ -101,11 +96,6 @@ class UserTable(UserExtraBase, PrimaryKeyBase, table=True):
     )
     identity: Optional[UserIdentityTable] = Relationship(
         sa_relationship_kwargs={"lazy": "selectin"}
-    )
-
-    collaborator_in: list[TripTable] = Relationship(
-        link_model=CollaboratorTable,
-        sa_relationship_kwargs={"lazy": "selectin"},
     )
 
 

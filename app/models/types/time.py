@@ -1,7 +1,7 @@
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Optional
 
-from pydantic import PlainSerializer
+from pydantic import AwareDatetime, PlainSerializer
 from sqlmodel import TIMESTAMP, Column, Field, func
 
 
@@ -20,7 +20,7 @@ def datetime_to_ms(dt: datetime) -> int:
     return int(dt.timestamp() * 1000.0)
 
 
-Timestamp = datetime
+Timestamp = AwareDatetime
 IntTimestamp = Annotated[Timestamp, PlainSerializer(datetime_to_int)]
 IntTimestampMs = Annotated[Timestamp, PlainSerializer(datetime_to_ms)]
 

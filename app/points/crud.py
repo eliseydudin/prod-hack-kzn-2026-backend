@@ -61,7 +61,7 @@ async def create_point(
     trip_id: SnowflakeId,
     request: CreateWaypointRequest,
 ) -> Waypoint:
-    trip = await get_owned_trip(session, owner, trip_id, lock=True)
+    trip = await get_owned_trip(session, owner, trip_id)
     point = WaypointTable.model_validate(request, update={"trip": trip})
     session.add(point)
     result = Waypoint.model_validate(point)
@@ -76,7 +76,7 @@ async def update_point(
     point_id: SnowflakeId,
     request: UpdateWaypointRequest,
 ) -> Waypoint:
-    trip = await get_owned_trip(session, owner, trip_id, lock=True)
+    trip = await get_owned_trip(session, owner, trip_id)
     point = await _get_point(session, trip, point_id)
     point.sqlmodel_update(request.model_dump(exclude_unset=True))
     result = Waypoint.model_validate(point)
@@ -90,7 +90,7 @@ async def delete_point(
     trip_id: SnowflakeId,
     point_id: SnowflakeId,
 ) -> None:
-    trip = await get_owned_trip(session, owner, trip_id, lock=True)
+    trip = await get_owned_trip(session, owner, trip_id)
     point = await _get_point(session, trip, point_id)
     try:
         await session.delete(point)

@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from uuid import uuid4
 
 import pytest
@@ -61,8 +61,8 @@ async def test_event_lifecycle_and_trip_scope(event_session: Session):
         CreateEventRequest(
             title="Ночная экскурсия",
             type=EventType.TOUR,
-            started_at=datetime(2026, 12, 11, 23, 30),
-            ended_at=datetime(2026, 12, 12, 1),
+            started_at=datetime(2026, 12, 11, 23, 30, tzinfo=UTC),
+            ended_at=datetime(2026, 12, 12, 1, tzinfo=UTC),
             waypoint_id=waypoint.id,
         ),
     )
@@ -73,7 +73,7 @@ async def test_event_lifecycle_and_trip_scope(event_session: Session):
         CreateEventRequest(
             title="Заселение",
             type=EventType.STAY,
-            started_at=datetime(2026, 12, 10, 14),
+            started_at=datetime(2026, 12, 10, 14, tzinfo=UTC),
         ),
     )
     assert event.waypoint_id == waypoint.id
@@ -89,12 +89,14 @@ async def test_event_lifecycle_and_trip_scope(event_session: Session):
             CreateEventRequest(
                 title="After the trip",
                 type=EventType.OTHER,
-                started_at=datetime(2026, 12, 14, 12),
+                started_at=datetime(2026, 12, 14, 12, tzinfo=UTC),
             ),
         )
     for changes in (
-        UpdateEventRequest(ended_at=datetime(2026, 12, 11, 22)),
-        UpdateEventRequest(started_at=datetime(2026, 12, 14, 12), ended_at=None),
+        UpdateEventRequest(ended_at=datetime(2026, 12, 11, 22, tzinfo=UTC)),
+        UpdateEventRequest(
+            started_at=datetime(2026, 12, 14, 12, tzinfo=UTC), ended_at=None
+        ),
     ):
         with pytest.raises(ValidationError):
             await update_event(event_session, owner, trip.id, event.id, changes)
@@ -118,10 +120,13 @@ async def test_event_lifecycle_and_trip_scope(event_session: Session):
         owner,
         trip.id,
         event.id,
-        UpdateEventRequest(started_at=datetime(2026, 12, 11, 22), waypoint_id=None),
+        UpdateEventRequest(
+            started_at=datetime(2026, 12, 11, 22, tzinfo=UTC),
+            waypoint_id=None,
+        ),
     )
     assert updated.waypoint_id is None
-    assert updated.started_at == datetime(2026, 12, 11, 22)
+    assert updated.started_at == datetime(2026, 12, 11, 22, tzinfo=UTC)
     assert updated.ended_at == event.ended_at
     assert await get_event(event_session, owner, trip.id, event.id) == updated
 

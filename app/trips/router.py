@@ -117,6 +117,6 @@ async def generate_code(
 async def join_trip(
     session: SessionDep,
     user: CurrentUser,
-    code: str = Query(min_length=1, max_length=128),
+    code: str = Path(min_length=1, max_length=128),
 ):
     await join_trip_by_invite_code(session, user, code)

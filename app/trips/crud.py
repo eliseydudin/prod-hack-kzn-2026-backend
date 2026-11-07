@@ -35,9 +35,10 @@ async def get_owned_trip(
     query = select(TripTable).where(col(TripTable.id) == trip_id)
     trip = (await session.execute(query)).scalar()
 
-    if trip is None or trip.owner != owner or owner not in trip.collaborators:
-        raise NotFoundError
-    return trip
+    if trip is not None and (owner == trip.owner or owner in trip.collaborators):
+        return trip
+
+    raise NotFoundError
 
 
 async def list_trips(session: Session, owner: UserTable) -> list[Trip]:
@@ -71,7 +72,7 @@ async def update_trip(
     trip_id: SnowflakeId,
     request: UpdateTripRequest,
 ) -> Trip:
-    trip = await get_owned_trip(session, owner, trip_id, lock=True)
+    trip = await get_owned_trip(session, owner, trip_id)
     changes = request.model_dump(exclude_unset=True)
     try:
         TripBase.model_validate(trip, update=changes)
@@ -89,7 +90,7 @@ async def delete_trip(
     owner: UserTable,
     trip_id: SnowflakeId,
 ) -> None:
-    trip = await get_owned_trip(session, owner, trip_id, lock=True)
+    trip = await get_owned_trip(session, owner, trip_id)
     waypoint_key = await session.scalar(
         select(col(WaypointTable.primary_key))
         .where(col(WaypointTable.trip) == trip)
