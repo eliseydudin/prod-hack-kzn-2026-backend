@@ -1,7 +1,7 @@
 from os import path
 from random import randint
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, PositiveInt, RedisDsn, field_validator, model_validator
 from pydantic_extra_types.dsn import PostgresDsn
 from pydantic_settings import BaseSettings
 
@@ -11,6 +11,13 @@ class Settings(BaseSettings):
 
     database_url: PostgresDsn
     jwt_token: str
+    redis_url: RedisDsn | None = None
+
+    rate_limit_window_seconds: PositiveInt = 60
+    rate_limit_login: PositiveInt = 10
+    rate_limit_register: PositiveInt = 5
+    rate_limit_refresh: PositiveInt = 30
+    rate_limit_user: PositiveInt = 120
 
     domain: str | None = None
     cookie_domain: str | None = None

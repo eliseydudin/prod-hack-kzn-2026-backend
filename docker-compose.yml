@@ -6,9 +6,9 @@ x-app-env: &app-env
     CORS_ORIGINS: ${CORS_ORIGINS:-[]}
     SEED_TEST_USERS: ${SEED_TEST_USERS:-false}
     SEED_TEST_PASSWORD: ${SEED_TEST_PASSWORD:-}
-    DATABASE__URL: postgresql+asyncpg://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@db:5432/${POSTGRES_DB:-app}
-    REDIS__URL: redis://redis:6379/0
-    AUTH__SECRET_KEY: ${AUTH__SECRET_KEY:-dev-only-insecure-secret-key-change-me!!}
+    DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-app}@db:5432/${POSTGRES_DB:-app}
+    REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+    JWT_TOKEN: ${JWT_TOKEN:-dev-only-insecure-secret-key-change-me!!}
 
 services:
     db:
@@ -29,7 +29,7 @@ services:
 
     redis:
         image: valkey/valkey:9.1.2-alpine3.24
-        ports: ["${REDIS_HOST_PORT:-6379}:6379"]
+        ports: ["127.0.0.1:${REDIS_HOST_PORT:-6379}:6379"]
         healthcheck:
             test: ["CMD", "valkey-cli", "ping"]
             interval: 3s
@@ -55,6 +55,12 @@ services:
                 APP_VERSION: dev
         environment:
             <<: *app-env
+            FORWARDED_ALLOW_IPS: "${FORWARDED_ALLOW_IPS:-*}"
+            RATE_LIMIT_WINDOW_SECONDS:
+            RATE_LIMIT_LOGIN:
+            RATE_LIMIT_REGISTER:
+            RATE_LIMIT_REFRESH:
+            RATE_LIMIT_USER:
             PUSH__VAPID_KEY_FILE: /var/lib/app/vapid/private_key.pem
         volumes:
             - vapid:/var/lib/app/vapid
@@ -126,4 +132,4 @@ services:
 
 volumes:
     pg-data:
-    # vapid:  # the VAPID key pair: browsers subscribed with its public key
+    vapid:  # the VAPID key pair: browsers subscribed with its public key

@@ -22,6 +22,7 @@ class ErrorCode(PascalCaseEnum):
     VALIDATION_FAILED = auto()
     USERNAME_IS_ALREADY_IN_USE = auto()
     POINT_HAS_TRANSFERS = auto()
+    RATE_LIMITED = auto()
 
 
 @dataclass(kw_only=True, config={"alias_generator": to_camel, "validate_by_name": True})
@@ -71,6 +72,13 @@ class ConflictError(HTTPException):
 class GoneError(HTTPException):
     status_code = 410
     error_code: ErrorCode = ErrorCode.NOT_FOUND
+
+
+@dataclass(kw_only=True, config={"alias_generator": to_camel, "validate_by_name": True})
+class RateLimitError(HTTPException):
+    status_code = 429
+    error_code: ErrorCode = ErrorCode.RATE_LIMITED
+    retry_after: int = Field(exclude=True)
 
 
 @dataclass

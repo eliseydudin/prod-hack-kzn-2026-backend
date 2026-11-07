@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from logging import getLogger
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
@@ -14,7 +14,8 @@ from app.database import get_session_ctx, setup_tables
 from app.events.router import router as events_router
 from app.models.status import Status
 from app.points.router import router as points_router
-from app.responses import HTTPException, ValidationError, responses
+from app.rate_limit import RateLimiter, create_rate_limit_client, limit_user_requests
+from app.responses import HTTPException, RateLimitError, ValidationError, responses
 from app.settings import settings
 from app.transfers.router import router as transfers_router
 from app.trips.router import router as trips_router
@@ -29,15 +30,27 @@ def generate_unique_name(route: APIRoute):
 
 
 @asynccontextmanager
-async def lifespan(_app: FastAPI):
+async def lifespan(app: FastAPI):
     setup_logger(logger)
     await setup_tables()
     async with get_session_ctx() as sesh:
         await create_bootstrap_user(sesh)
 
-    logger.info("Setup complete")
+    client = (
+        create_rate_limit_client(str(settings.redis_url))
+        if settings.redis_url
+        else None
+    )
+    app.state.rate_limiter = (
+        RateLimiter(client, settings.rate_limit_window_seconds) if client else None
+    )
 
-    yield
+    logger.info("Setup complete")
+    try:
+        yield
+    finally:
+        if client is not None:
+            await client.aclose()
 
 
 app = FastAPI(
@@ -47,10 +60,12 @@ app = FastAPI(
 )
 app.include_router(auth_router)
 app.include_router(admin_router)
-app.include_router(trips_router)
-app.include_router(points_router)
-app.include_router(transfers_router)
-app.include_router(events_router)
+for router in (trips_router, points_router, transfers_router, events_router):
+    app.include_router(
+        router,
+        dependencies=[Depends(limit_user_requests)],
+        responses=responses(RateLimitError),
+    )
 
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
@@ -69,14 +84,21 @@ app.add_middleware(
     allow_origins=ALLOWED_ORIGINS,
     allow_headers=["*"],
     allow_credentials=True,
+    expose_headers=["Retry-After"],
 )
 
 
 @app.exception_handler(HTTPException)
 async def handle_http_exceptions(_app, error: HTTPException):
+    headers = (
+        {"Retry-After": str(error.retry_after), "Cache-Control": "no-store"}
+        if isinstance(error, RateLimitError)
+        else None
+    )
     return JSONResponse(
         error.dump_python(),
         status_code=error.status_code,
+        headers=headers,
     )
 
 

@@ -19,18 +19,35 @@ from app.models.user import (
     RegisterUserRequest,
     User,
 )
-from app.responses import AuthorizationError, ConflictError, responses
+from app.rate_limit import limit_login, limit_refresh, limit_registration
+from app.responses import (
+    AuthorizationError,
+    ConflictError,
+    RateLimitError,
+    ServiceUnavailableError,
+    responses,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = getLogger(__name__)
 
 
-@router.post("/register", responses=responses(ConflictError), status_code=201)
+@router.post(
+    "/register",
+    dependencies=[Depends(limit_registration)],
+    responses=responses(ConflictError, RateLimitError, ServiceUnavailableError),
+    status_code=201,
+)
 async def register(session: SessionDep, req: RegisterUserRequest) -> User:
     return await impl.register(session, CreateUserRequest.model_validate(req))
 
 
-@router.post("/login", responses=responses(AuthorizationError), status_code=200)
+@router.post(
+    "/login",
+    dependencies=[Depends(limit_login)],
+    responses=responses(AuthorizationError, RateLimitError, ServiceUnavailableError),
+    status_code=200,
+)
 async def login(
     session: SessionDep,
     credentials: Annotated[OAuth2PasswordRequestFormStrict, Depends()],
@@ -44,7 +61,12 @@ async def login(
     )
 
 
-@router.post("/refresh", status_code=200, responses=responses(AuthorizationError))
+@router.post(
+    "/refresh",
+    dependencies=[Depends(limit_refresh)],
+    responses=responses(AuthorizationError, RateLimitError),
+    status_code=200,
+)
 async def refresh_token(
     session: SessionDep,
     refresh_token: RefreshTokenDep,

@@ -12,6 +12,7 @@ from app.responses.exceptions.http import (
     HTTPException,
     InternalServerError,
     NotFoundError,
+    RateLimitError,
     ServiceUnavailableError,
     ValidationError,
 )
@@ -31,6 +32,10 @@ def responses(*args: Content | type[HTTPException]):
             result[arg.status_code]["content"][arg.content_type] = {}
         else:
             result[arg.status_code] = {"model": arg}
+            if arg is RateLimitError:
+                result[arg.status_code]["headers"] = {
+                    "Retry-After": {"schema": {"type": "integer", "minimum": 1}}
+                }
     return result
 
 
@@ -44,6 +49,7 @@ __all__ = [
     "ForbiddenError",
     "GoneError",
     "NotFoundError",
+    "RateLimitError",
     "Content",
     "ServiceUnavailableError",
     "ValidationError",

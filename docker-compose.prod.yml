@@ -12,9 +12,9 @@ x-app: &app
 
     DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:?}:${POSTGRES_PASSWORD:?}@db:5432/${POSTGRES_DB:?}
     JWT_TOKEN: ${JWT_TOKEN}
-    # REDIS__URL: redis://redis:6379/0
+    REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
 
-    FORWARDED_ALLOW_IPS: "*"
+    FORWARDED_ALLOW_IPS: "${FORWARDED_ALLOW_IPS:-*}"
 
 services:
   db:
@@ -59,6 +59,11 @@ services:
     <<: *app
     environment:
       <<: *app-environment
+      RATE_LIMIT_WINDOW_SECONDS:
+      RATE_LIMIT_LOGIN:
+      RATE_LIMIT_REGISTER:
+      RATE_LIMIT_REFRESH:
+      RATE_LIMIT_USER:
     depends_on:
       db:
         condition: service_healthy
