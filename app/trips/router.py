@@ -26,6 +26,7 @@ from app.responses import (
     responses,
 )
 from app.storage import StorageDep
+from app.trips.archive_router import router as archive_router
 from app.trips.crud import (
     create_trip,
     delete_trip,
@@ -65,6 +66,9 @@ async def post_trip(
     user: CurrentUser,
 ) -> Trip:
     return await create_trip(session, user, request)
+
+
+router.include_router(archive_router)
 
 
 @router.get(

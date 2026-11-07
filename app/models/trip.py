@@ -30,7 +30,7 @@ def validate_cover_link(value: str) -> str:
 CoverLink = Annotated[str, AfterValidator(validate_cover_link)]
 
 
-class TripBase(Base):
+class TripDetails(Base):
     name: str = Field(min_length=1, max_length=128)
     description: str | None = Field(
         default=None,
@@ -39,13 +39,16 @@ class TripBase(Base):
     )
     started_on: date
     ended_on: date | None = None
-    cover: str | None = Field(default=None, sa_type=Text)
 
     @model_validator(mode="after")
     def validate_date_range(self):
         if self.ended_on is not None and self.ended_on < self.started_on:
             raise ValueError("endedOn must be on or after startedOn")
         return self
+
+
+class TripBase(TripDetails):
+    cover: str | None = Field(default=None, sa_type=Text)
 
 
 class TripExtraBase(TripBase, SnowflakeIdBase):

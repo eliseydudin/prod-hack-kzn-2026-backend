@@ -21,7 +21,7 @@ _end = aliased(WaypointTable)
 _WAYPOINT_IDS = {"starts_at_waypoint_id", "ends_at_waypoint_id"}
 
 
-def _trip_transfers(trip: TripTable):
+def get_trip_transfers(trip: TripTable):
     return (
         select(MovementTable, _start, _end)
         .join(_start, _start.primary_key == MovementTable.starts_at_waypoint_id)  # type: ignore
@@ -37,7 +37,7 @@ async def _get_transfer(
     transfer_id: SnowflakeId,
 ):
     result = await session.execute(
-        _trip_transfers(trip).where(MovementTable.id == transfer_id)
+        get_trip_transfers(trip).where(MovementTable.id == transfer_id)
     )
     row = result.one_or_none()
     if row is None:
@@ -82,7 +82,7 @@ async def list_transfers(
 ) -> list[Movement]:
     trip = await get_owned_trip(session, owner, trip_id)
     rows = await session.execute(
-        _trip_transfers(trip).order_by(col(MovementTable.primary_key))
+        get_trip_transfers(trip).order_by(col(MovementTable.primary_key))
     )
     return [_as_movement(*row) for row in rows]
 
