@@ -2,6 +2,7 @@ from typing import Annotated
 
 from pydantic import StringConstraints
 from pydantic_core import MISSING
+from sqlalchemy import false
 from sqlmodel import Field, Relationship
 
 from app.models.base import Base, PrimaryKeyBase, SnowflakeIdBase
@@ -21,7 +22,7 @@ class WaypointBase(Base):
 
 
 class WaypointExtraBase(WaypointBase, SnowflakeIdBase):
-    visited: bool = False
+    visited: bool = Field(default=False, sa_column_kwargs={"server_default": false()})
 
 
 class WaypointTable(WaypointExtraBase, PrimaryKeyBase, table=True):

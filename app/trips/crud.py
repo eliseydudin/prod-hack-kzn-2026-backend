@@ -1,11 +1,13 @@
-import warnings
-
 from pydantic import ValidationError as PydanticValidationError
+from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import raiseload
 from sqlmodel import col, delete, desc, select
 from starlette.concurrency import run_in_threadpool
 
 from app.database.session import Session
+from app.models.collaborator import CollaboratorTable
+from app.models.event import EventTable
 from app.models.trip import (
     CreateTripRequest,
     Trip,
@@ -19,9 +21,20 @@ from app.models.trip import (
 from app.models.types.snowflake_id import SnowflakeId
 from app.models.user import User, UserTable
 from app.models.waypoint import WaypointTable
-from app.responses import ConflictError, NotFoundError, ValidationError
-from app.responses.exceptions.http import ErrorCode, InternalServerError
+from app.responses import ConflictError, ForbiddenError, NotFoundError, ValidationError
+from app.responses.exceptions.http import ErrorCode
 from app.storage import Storage
+
+
+def _user_key(user: UserTable) -> int | None:
+    identity = inspect(user).identity
+    return identity[0] if identity else user.primary_key
+
+
+def _accessible_trip(user_id: int):
+    return (col(TripTable.owner_id) == user_id) | col(TripTable.primary_key).in_(
+        select(CollaboratorTable.trip_id).where(CollaboratorTable.user_id == user_id)
+    )
 
 
 async def get_owned_trip(
@@ -29,24 +42,37 @@ async def get_owned_trip(
     owner: UserTable,
     trip_id: SnowflakeId,
     *,
-    lock: bool | None = None,
+    lock: bool = False,
 ) -> TripTable:
-    if lock is not None:
-        warnings.warn("`lock` on `get_owned_trip` is deprecated")
-
-    query = select(TripTable).where(col(TripTable.id) == trip_id)
-    trip = (await session.execute(query)).scalar()
-
-    if trip is not None and (owner == trip.owner or owner in trip.collaborators):
+    user_id = _user_key(owner)
+    if user_id is None:
+        raise NotFoundError
+    query = (
+        select(TripTable)
+        .where(col(TripTable.id) == trip_id, _accessible_trip(user_id))
+        .execution_options(populate_existing=True)
+    )
+    if lock:
+        query = query.with_for_update(of=TripTable)
+    trips = (await session.scalars(query.limit(2))).all()
+    if len(trips) != 1:
+        raise NotFoundError
+    trip = trips[0]
+    if trip.owner_id == user_id or any(
+        user.primary_key == user_id for user in trip.collaborators
+    ):
         return trip
 
     raise NotFoundError
 
 
 async def list_trips(session: Session, owner: UserTable) -> list[Trip]:
+    user_id = _user_key(owner)
+    if user_id is None:
+        raise NotFoundError
     result = await session.execute(
         select(TripTable)
-        .where(col(TripTable.owner) == owner)
+        .where(_accessible_trip(user_id))
         .order_by(desc(col(TripTable.created_at)), desc(col(TripTable.primary_key)))
     )
     return [Trip.model_validate(trip) for trip in result.scalars().all()]
@@ -101,12 +127,28 @@ async def update_trip(
     *,
     storage: Storage | None = None,
 ) -> Trip:
-    trip = await get_owned_trip(session, owner, trip_id)
+    trip = await get_owned_trip(session, owner, trip_id, lock=True)
     changes = request.model_dump(exclude_unset=True)
     try:
-        TripBase.model_validate(trip, update=changes)
+        updated = TripBase.model_validate(trip, update=changes)
     except PydanticValidationError as error:
         raise ValidationError(errors=error.errors(include_input=False)) from error
+
+    if changes.keys() & {"started_on", "ended_on"}:
+        events = await session.execute(
+            select(EventTable.started_at, EventTable.ended_at).where(
+                EventTable.trip_id == trip.primary_key
+            )
+        )
+        if any(
+            start.date() < updated.started_on
+            or (
+                updated.ended_on is not None
+                and (end or start).date() > updated.ended_on
+            )
+            for start, end in events
+        ):
+            raise ValidationError(errors=["trip dates would exclude existing events"])
 
     old_cover = trip.cover
     trip.sqlmodel_update(changes)
@@ -124,19 +166,34 @@ async def delete_trip(
     *,
     storage: Storage | None = None,
 ) -> None:
-    trip = await get_owned_trip(session, owner, trip_id)
-    waypoint_key = await session.scalar(
-        select(col(WaypointTable.primary_key))
-        .where(col(WaypointTable.trip) == trip)
-        .limit(1)
-    )
-    if waypoint_key is not None:
-        raise ConflictError(detail={"reason": "trip_has_waypoints"})
     try:
+        trip = await get_owned_trip(session, owner, trip_id, lock=True)
+        if trip.owner_id != _user_key(owner):
+            raise ForbiddenError
+        waypoint_key = await session.scalar(
+            select(col(WaypointTable.primary_key))
+            .where(col(WaypointTable.trip) == trip)
+            .limit(1)
+        )
+        if waypoint_key is not None:
+            raise ConflictError(detail={"reason": "trip_has_waypoints"})
+        event_key = await session.scalar(
+            select(col(EventTable.primary_key))
+            .where(col(EventTable.trip_id) == trip.primary_key)
+            .limit(1)
+        )
+        if event_key is not None:
+            raise ConflictError(detail={"reason": "trip_has_events"})
+        cover = trip.cover
+        await session.execute(
+            delete(TripInviteLinkTable).where(
+                TripInviteLinkTable.trip_id == trip.primary_key
+            )
+        )
         await session.execute(
             delete(TripTable).where(
                 col(TripTable.primary_key) == trip.primary_key,
-                col(TripTable.owner) == owner,
+                col(TripTable.owner_id) == trip.owner_id,
             )
         )
         await session.commit()
@@ -144,6 +201,10 @@ async def delete_trip(
     except IntegrityError as error:
         await session.rollback()
         raise ConflictError(detail={"reason": "trip_has_dependencies"}) from error
+    except Exception:
+        await session.rollback()
+        raise
+    await _remove_stored_cover(storage, cover)
 
 
 async def generate_trip_invite_link(
@@ -152,7 +213,9 @@ async def generate_trip_invite_link(
     trip_id: SnowflakeId,
     max_uses: int,
 ):
-    trip = await get_owned_trip(session, user, trip_id)
+    if not 1 <= max_uses <= 100:
+        raise ValidationError(errors=["max_uses must be between 1 and 100"])
+    trip = await get_owned_trip(session, user, trip_id, lock=True)
     invite_link = TripInviteLinkTable(max_uses=max_uses, uses=max_uses)
     trip.invite_links.append(invite_link)
 
@@ -163,34 +226,55 @@ async def generate_trip_invite_link(
     return TripInviteLink.model_validate(invite_link)
 
 
-async def get_link_by_code(session: Session, code: str):
-    query = select(TripInviteLinkTable).where(TripInviteLinkTable.code == code)
+async def _get_locked_invite_link(session: Session, code: str, trip_key: int):
+    query = (
+        select(TripInviteLinkTable)
+        .where(
+            TripInviteLinkTable.code == code,
+            TripInviteLinkTable.trip_id == trip_key,
+        )
+        .with_for_update()
+        .options(raiseload("*"))
+        .execution_options(populate_existing=True)
+    )
     if res := await session.scalar(query):
         return res
     raise ConflictError(error_code=ErrorCode.EXPIRED_LINK)
 
 
 async def join_trip_by_invite_code(session: Session, user: UserTable, code: str):
-    link = await get_link_by_code(session, code)
-    if link.uses <= 0:
-        raise ConflictError(error_code=ErrorCode.EXPIRED_LINK)
-
-    if trip := link.trip:
-        if user in trip.collaborators or user == trip.owner:
+    try:
+        trip_key = await session.scalar(
+            select(TripInviteLinkTable.trip_id).where(TripInviteLinkTable.code == code)
+        )
+        if trip_key is None:
+            raise ConflictError(error_code=ErrorCode.EXPIRED_LINK)
+        trip = await session.scalar(
+            select(TripTable)
+            .where(TripTable.primary_key == trip_key)
+            .with_for_update(of=TripTable)
+            .execution_options(populate_existing=True)
+        )
+        if trip is None:
+            raise ConflictError(error_code=ErrorCode.EXPIRED_LINK)
+        link = await _get_locked_invite_link(session, code, trip_key)
+        if link.uses <= 0:
+            raise ConflictError(error_code=ErrorCode.EXPIRED_LINK)
+        user_id = _user_key(user)
+        if trip.owner_id == user_id or any(
+            member.primary_key == user_id for member in trip.collaborators
+        ):
             raise ConflictError(error_code=ErrorCode.USER_IS_ALREADY_A_COLLABORATOR)
 
-        link.trip.collaborators.append(user)
+        trip.collaborators.append(user)
         link.uses -= 1
 
         if link.uses == 0:
             await session.delete(link)
-        else:
-            session.add(link)
-
-        session.add(user)
         await session.commit()
-    else:
-        raise InternalServerError
+    except Exception:
+        await session.rollback()
+        raise
 
 
 async def get_collaborators_on_trip(

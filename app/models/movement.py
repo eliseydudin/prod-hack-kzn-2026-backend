@@ -1,6 +1,4 @@
-from datetime import UTC
-
-from pydantic import field_validator, model_validator
+from pydantic import model_validator
 from pydantic_core import MISSING
 from sqlmodel import Field, Relationship
 
@@ -59,15 +57,6 @@ class CreateMovementRequest(MovementBase):
     starts_at_waypoint_id: SnowflakeId
     ends_at_waypoint_id: SnowflakeId
 
-    @field_validator("started_at", "ended_at")
-    @classmethod
-    def normalize_time(cls, value: Timestamp | None) -> Timestamp | None:
-        if value is None:
-            return None
-        if value.utcoffset() is None:
-            raise ValueError("timestamps must include a timezone")
-        return value.astimezone(UTC)
-
     @model_validator(mode="after")
     def validate_time_range(self):
         if self.ended_at is not None and self.ended_at < self.started_at:
@@ -78,6 +67,9 @@ class CreateMovementRequest(MovementBase):
 class UpdateMovementRequest(Base):
     transport_type: MaybeMissing[str] = Field(
         default=MISSING, min_length=1, max_length=128
+    )
+    description: MaybeMissing[str | None] = Field(
+        default=MISSING, min_length=1, max_length=512
     )
     started_at: MaybeMissing[Timestamp] = MISSING
     ended_at: MaybeMissing[Timestamp | None] = MISSING

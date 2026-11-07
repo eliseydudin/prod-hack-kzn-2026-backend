@@ -1,13 +1,5 @@
-from base64 import b64encode
-from random import randbytes
-
-from app.models.types.time import utc_now
+from secrets import token_urlsafe
 
 
-def generate_unique_code():
-    now = utc_now()
-    return (
-        b64encode(randbytes(4) + str(now.timestamp()).encode()[-8:])
-        .decode()
-        .removesuffix("=")
-    )
+def generate_unique_code() -> str:
+    return token_urlsafe(32)
