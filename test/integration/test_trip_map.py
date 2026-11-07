@@ -43,13 +43,18 @@ async def _register_and_login(client: AsyncClient) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
+async def _create_trip(client: AsyncClient) -> str:
+    trip = {"name": "Kazan", "startedOn": "2026-12-10", "endedOn": "2026-12-13"}
+    response = await client.post("trips", json=trip)
+    return response.raise_for_status().json()["id"]
+
+
 async def test_trip_points_and_transfers(map_client: AsyncClient):
     client = map_client
     outsider = await _register_and_login(client)
     client.headers.update(await _register_and_login(client))
-    trip = {"name": "Kazan", "startedOn": "2026-12-10", "endedOn": "2026-12-13"}
-    trip_id = (await client.post("trips", json=trip)).raise_for_status().json()["id"]
-    other_id = (await client.post("trips", json=trip)).raise_for_status().json()["id"]
+    trip_id = await _create_trip(client)
+    other_id = await _create_trip(client)
     points = f"trips/{trip_id}/points"
     transfers = f"trips/{trip_id}/transfers"
     assert (await client.get(points, headers=outsider)).status_code == 404
@@ -114,3 +119,63 @@ async def test_trip_points_and_transfers(map_client: AsyncClient):
     assert (await client.get(transfers)).json() == []
     assert (await client.delete(point)).status_code == 204
     assert (await client.get(point)).status_code == 404
+
+
+async def test_patch_point_updates_coordinates_and_clears_description(
+    map_client: AsyncClient,
+):
+    map_client.headers.update(await _register_and_login(map_client))
+    trip_id = await _create_trip(map_client)
+    points = f"trips/{trip_id}/points"
+    response = await map_client.post(
+        points,
+        json={
+            "name": "Station",
+            "latitude": 55.8,
+            "longitude": 49.1,
+            "description": "Main entrance",
+        },
+    )
+    original = response.raise_for_status().json()
+    item = f"{points}/{original['id']}"
+    changes = {"latitude": 55.81, "longitude": 49.12, "description": None}
+
+    updated = await map_client.patch(item, json=changes)
+
+    expected = {**original, **changes}
+    assert updated.raise_for_status().json() == expected
+    assert (await map_client.get(item)).raise_for_status().json() == expected
+
+
+async def test_patch_transfer_releases_replaced_point(map_client: AsyncClient):
+    map_client.headers.update(await _register_and_login(map_client))
+    trip_id = await _create_trip(map_client)
+    points = f"trips/{trip_id}/points"
+    transfers = f"trips/{trip_id}/transfers"
+    point_ids = []
+    for name in ("Station", "Hotel", "Airport"):
+        response = await map_client.post(
+            points, json={"name": name, "latitude": 55.8, "longitude": 49.1}
+        )
+        point_ids.append(response.raise_for_status().json()["id"])
+    start_id, end_id, replacement_id = point_ids
+    response = await map_client.post(
+        transfers,
+        json={
+            "transportType": "bus",
+            "startedAt": "2026-12-10T08:00:00Z",
+            "endedAt": "2026-12-10T09:00:00Z",
+            "startsAtWaypointId": start_id,
+            "endsAtWaypointId": end_id,
+        },
+    )
+    original = response.raise_for_status().json()
+    item = f"{transfers}/{original['id']}"
+    changes = {"endsAtWaypointId": replacement_id}
+
+    updated = await map_client.patch(item, json=changes)
+
+    expected = {**original, **changes}
+    assert updated.raise_for_status().json() == expected
+    assert (await map_client.delete(f"{points}/{end_id}")).status_code == 204
+    assert (await map_client.get(item)).raise_for_status().json() == expected
