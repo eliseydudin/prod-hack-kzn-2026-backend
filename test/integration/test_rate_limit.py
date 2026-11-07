@@ -8,15 +8,21 @@ from app.rate_limit import RateLimiter, create_rate_limit_client
 from app.responses import RateLimitError
 
 
-async def test_parallel_requests_share_a_quota_and_rejections_do_not_renew_it():
+@pytest.fixture
+def redis_url():
     url = getenv("TEST_REDIS_URL")
     if not url:
         pytest.skip("TEST_REDIS_URL must point to a test Valkey instance")
+    return url
 
+
+async def test_parallel_requests_share_a_quota_and_rejections_do_not_renew_it(
+    redis_url,
+):
     subject = uuid4().hex
     async with (
-        create_rate_limit_client(url) as first,
-        create_rate_limit_client(url) as second,
+        create_rate_limit_client(redis_url) as first,
+        create_rate_limit_client(redis_url) as second,
     ):
         limiters = [RateLimiter(first, 1), RateLimiter(second, 1)]
         results = await gather(
@@ -36,3 +42,16 @@ async def test_parallel_requests_share_a_quota_and_rejections_do_not_renew_it():
                     await sleep(0.05)
                 else:
                     break
+
+
+async def test_counter_without_expiry_gets_a_window(redis_url):
+    subject = uuid4().hex
+    key = f"travelhub:rate_limit:v1:test:{subject}"
+    async with create_rate_limit_client(redis_url) as client:
+        await client.set(key, 3)
+        limiter = RateLimiter(client, window_seconds=1)
+
+        with pytest.raises(RateLimitError):
+            await limiter.enforce("test", subject, 3)
+
+        assert 0 < await client.pttl(key) <= 1000

@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock
 import pytest
 from pytest import MonkeyPatch
 from valkey.exceptions import ConnectionError as ValkeyConnectionError
+from valkey.exceptions import OutOfMemoryError, ReadOnlyError
 
 from app.auth.tokens import get_current_user
 from app.database.connection import get_session
@@ -98,10 +99,13 @@ def test_limit_returns_shared_error_and_exposes_retry_after(
     evaluate.assert_awaited_once()
 
 
+@pytest.mark.parametrize(
+    "error", [ValkeyConnectionError, OutOfMemoryError, ReadOnlyError]
+)
 def test_valkey_outage_blocks_login_and_preserves_authenticated_routes(
-    monkeypatch: MonkeyPatch, api_without_db
+    monkeypatch: MonkeyPatch, api_without_db, error
 ):
-    evaluate = AsyncMock(side_effect=ValkeyConnectionError)
+    evaluate = AsyncMock(side_effect=error)
     limiter = RateLimiter(SimpleNamespace(eval=evaluate), window_seconds=60)
     monkeypatch.setattr(app.state, "rate_limiter", limiter, raising=False)
 

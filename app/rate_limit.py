@@ -2,10 +2,11 @@ from asyncio import timeout
 from logging import getLogger
 
 from fastapi import Request
-from valkey.asyncio import Valkey
+from valkey.asyncio import BlockingConnectionPool, Valkey
 from valkey.asyncio.retry import Retry
 from valkey.backoff import NoBackoff
 from valkey.exceptions import ConnectionError as ValkeyConnectionError
+from valkey.exceptions import OutOfMemoryError, ReadOnlyError
 from valkey.exceptions import TimeoutError as ValkeyTimeoutError
 
 from app.auth.tokens import CurrentUser
@@ -15,22 +16,31 @@ from app.settings import settings
 logger = getLogger(__name__)
 
 VALKEY_TIMEOUT = 0.25
+VALKEY_MAX_CONNECTIONS = 32
 FIXED_WINDOW = """
-local count = redis.call("INCR", KEYS[1])
-if count == 1 then
-    redis.call("PEXPIRE", KEYS[1], ARGV[1])
+local ttl = redis.call("PTTL", KEYS[1])
+if ttl == -2 then
+    redis.call("SET", KEYS[1], 1, "PX", ARGV[1])
+    return {1, tonumber(ARGV[1])}
 end
-return {count, redis.call("PTTL", KEYS[1])}
+if ttl == -1 then
+    redis.call("PEXPIRE", KEYS[1], ARGV[1])
+    ttl = tonumber(ARGV[1])
+end
+return {redis.call("INCR", KEYS[1]), ttl}
 """
 
 
 def create_rate_limit_client(url: str) -> Valkey:
-    return Valkey.from_url(
+    pool = BlockingConnectionPool.from_url(
         url,
+        max_connections=VALKEY_MAX_CONNECTIONS,
+        timeout=VALKEY_TIMEOUT,
         socket_connect_timeout=VALKEY_TIMEOUT,
         socket_timeout=VALKEY_TIMEOUT,
         retry=Retry(NoBackoff(), 0),
     )
+    return Valkey.from_pool(pool)
 
 
 class RateLimiter:
@@ -48,7 +58,13 @@ class RateLimiter:
                 count, ttl_ms = await self.client.eval(
                     FIXED_WINDOW, 1, key, self.window_ms
                 )
-        except (TimeoutError, ValkeyConnectionError, ValkeyTimeoutError) as error:
+        except (
+            TimeoutError,
+            ValkeyConnectionError,
+            ValkeyTimeoutError,
+            OutOfMemoryError,
+            ReadOnlyError,
+        ) as error:
             if not self._unavailable:
                 logger.warning("Valkey unavailable for rate limiting")
                 self._unavailable = True
