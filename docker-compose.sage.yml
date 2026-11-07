@@ -1,0 +1,23 @@
+name: travelhub-sage
+
+services:
+  vector:
+    image: timberio/vector:0.58.0-alpine
+    command: ["--config", "/etc/vector/vector.toml", "--dangerously-allow-env-var-interpolation"]
+    environment:
+      SAGE__API_KEY: ${SAGE__API_KEY:?Set the Spirit API key}
+      SAGE__GROUP: ${SAGE__GROUP:-hack-kzn-05}
+      SAGE__DOCKER_LABEL: com.docker.compose.project=${MONITORING_TARGET_PROJECT:-travelhub}
+    volumes:
+      - ./docker/vector/vector.toml:/etc/vector/vector.toml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - vector-data:/var/lib/vector
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8686/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  vector-data:

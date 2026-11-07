@@ -1,11 +1,12 @@
 # Ships container logs to Sage Logs Collector (docs/adr/0017-logs-in-sage.md).
-# Reads stdout/stderr of containers labelled `sage.logs=true` through the Docker API,
+# Reads stdout/stderr of selected containers through the Docker API,
 # adds the fields Sage requires (env, system, inst, @timestamp) and posts them in
 # gzip-compressed batches of newline-delimited JSON. The services themselves keep writing
 # to stdout only: when Sage or this container is down, nothing else is affected.
 #
 # Environment: SAGE__API_KEY (Spirit API key, required), SAGE__GROUP (Sage group),
-# SAGE__ENV (value of `env`), SAGE__URL (collector base URL). Env references below need
+# SAGE__ENV (value of `env`), SAGE__URL (collector base URL), SAGE__DOCKER_LABEL (selector).
+# Env references below need
 # `--dangerously-allow-env-var-interpolation` (off by default since Vector 0.5x); only the
 # compose file controls this container's environment (interpolation also runs in comments).
 
@@ -18,7 +19,7 @@ address = "127.0.0.1:8686"
 
 [sources.containers]
 type = "docker_logs"
-include_labels = ["sage.logs=true"]
+include_labels = ["${SAGE__DOCKER_LABEL:-sage.logs=true}"]
 
 [transforms.sage_event]
 type = "remap"
@@ -37,8 +38,11 @@ raw = string(.message) ?? ""
 parsed, err = parse_json(raw)
 if err == null && is_object(parsed) {
   . = object!(parsed)
+  if service == "nginx" && is_string(.uri) {
+    .uri = split(string!(.uri), "?", limit: 2)[0]
+  }
 } else {
-  . = {"message": raw}
+  . = {"message": replace(raw, r'(\b[A-Z]+ /[^?\s"]*|https?://[^?\s"]+)\?[^"\s]*', "$$1")}
 }
 
 # structlog puts the text into `event`; Sage shows `message` in the result list.
@@ -97,7 +101,7 @@ if terr == null {
 [sinks.sage]
 type = "http"
 inputs = ["sage_event"]
-uri = "${SAGE__URL:-https://sage.spirit.t-education.com}/api/${SAGE__GROUP:-hack-led-12}/multiline/"
+uri = "${SAGE__URL:-https://sage.spirit.t-education.com}/api/${SAGE__GROUP:-hack-kzn-05}/multiline/"
 method = "post"
 compression = "gzip"
 # The collector has no health endpoint; delivery errors show up in this container's log.
@@ -110,3 +114,35 @@ request.headers.Authorization = "JWT ${SAGE__API_KEY}"
 # 429 (group quota) and 5xx are retried with backoff; while Sage is down, events wait in
 # the buffer and then back-pressure the Docker log reader (containers are not affected).
 buffer.max_events = 10000
+
+[[tests]]
+name = "Nginx access logs exclude query parameters"
+
+[[tests.inputs]]
+insert_at = "sage_event"
+type = "vrl"
+source = '''
+.message = encode_json({"method": "GET", "uri": "/api/v1/trips?token=secret", "status": 503, "request_id": "example"})
+.label."com.docker.compose.service" = "nginx"
+.timestamp = now()
+'''
+
+[[tests.outputs]]
+extract_from = "sage_event"
+conditions = [{type = "vrl", source = 'assert!(.uri == "/api/v1/trips" && .request_id == "example" && .level == "ERROR")'}]
+
+[[tests]]
+name = "Plain HTTP logs exclude query parameters from request and upstream URLs"
+
+[[tests.inputs]]
+insert_at = "sage_event"
+type = "vrl"
+source = '''
+.message = "2026/11/07 [error] request: \"GET /api/v1/trips?token=secret HTTP/1.1\", upstream: \"http://api:8000/api/v1/trips?token=secret\""
+.label."com.docker.compose.service" = "nginx"
+.timestamp = now()
+'''
+
+[[tests.outputs]]
+extract_from = "sage_event"
+conditions = [{type = "vrl", source = 'assert_eq!(.message, "2026/11/07 [error] request: \"GET /api/v1/trips HTTP/1.1\", upstream: \"http://api:8000/api/v1/trips\"")'}]
