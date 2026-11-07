@@ -15,14 +15,21 @@ from app.auth.tokens import (
 from app.database import SessionDep
 from app.models.auth import AuthToken, AuthTokenResponse
 from app.models.user import (
+    ChangePasswordRequest,
     CreateUserRequest,
     RegisterUserRequest,
     User,
 )
-from app.rate_limit import limit_login, limit_refresh, limit_registration
+from app.rate_limit import (
+    limit_login,
+    limit_password_change,
+    limit_refresh,
+    limit_registration,
+)
 from app.responses import (
     AuthorizationError,
     ConflictError,
+    ForbiddenError,
     RateLimitError,
     ServiceUnavailableError,
     responses,
@@ -96,6 +103,22 @@ async def get_self(user: CurrentUser) -> User:
     return User.model_validate(user)
 
 
+@router.put(
+    "/me/password",
+    dependencies=[Depends(limit_password_change)],
+    responses=responses(
+        AuthorizationError, ForbiddenError, RateLimitError, ServiceUnavailableError
+    ),
+    status_code=204,
+)
+async def change_password(
+    me: CurrentUser,
+    session: SessionDep,
+    request: ChangePasswordRequest,
+) -> None:
+    await impl.change_password(session, me, request)
+
+
 @router.delete(
     "/me",
     responses=responses(AuthorizationError, ConflictError),
@@ -104,8 +127,10 @@ async def get_self(user: CurrentUser) -> User:
 async def delete_self(
     me: CurrentUser,
     session: SessionDep,
+    response: Response,
 ) -> None:
     await impl.delete_user(session, me)
+    delete_refresh_token(response)
     logger.info(
         "User @%s (%s) deleted their account",
         me.username,

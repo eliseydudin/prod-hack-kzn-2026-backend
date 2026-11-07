@@ -13,6 +13,7 @@ wheels/
 .env
 .env.storage
 .env.monitoring
+.env.sage
 
 # SQLite files
 *.db

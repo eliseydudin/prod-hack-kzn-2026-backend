@@ -12,8 +12,10 @@ from app.responses.exceptions.http import (
     HTTPException,
     InternalServerError,
     NotFoundError,
+    PayloadTooLargeError,
     RateLimitError,
     ServiceUnavailableError,
+    UnsupportedMediaTypeError,
     ValidationError,
 )
 from app.utils.iter import extend_with
@@ -49,9 +51,11 @@ __all__ = [
     "ForbiddenError",
     "GoneError",
     "NotFoundError",
+    "PayloadTooLargeError",
     "RateLimitError",
     "Content",
     "ServiceUnavailableError",
+    "UnsupportedMediaTypeError",
     "ValidationError",
     "GoogleInteractionFailed",
 ]

@@ -74,6 +74,7 @@ target/
 .env
 .env.storage
 .env.monitoring
+.env.sage
 .venv/
 venv/
 

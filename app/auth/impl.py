@@ -1,14 +1,22 @@
 from logging import getLogger
 
 from fastapi import Response
+from starlette.concurrency import run_in_threadpool
 
 from app import users
 from app.auth.hasher import check_dummy_hash, check_password, hash_password
 from app.auth.tokens import encode_token, send_refresh_token
 from app.database import Session
 from app.models.auth import AuthToken, AuthTokenResponse
-from app.models.user import CreateUserRequest, RegisterUserRequest, User, UserRole
-from app.responses import ConflictError
+from app.models.user import (
+    ChangePasswordRequest,
+    CreateUserRequest,
+    RegisterUserRequest,
+    User,
+    UserRole,
+    UserTable,
+)
+from app.responses import ConflictError, ForbiddenError
 from app.responses.exceptions.http import AuthorizationError, NotFoundError
 from app.settings import settings
 from app.users import delete_user, get_user_by_id
@@ -80,10 +88,30 @@ async def login(session: Session, username: str, password: str, response: Respon
     return AuthTokenResponse(access_token=encode_token(auth_token))
 
 
+async def change_password(
+    session: Session,
+    user: UserTable,
+    request: ChangePasswordRequest,
+) -> None:
+    await session.refresh(user, with_for_update=True)
+    if not user.enabled:
+        raise AuthorizationError()
+    if not user.password:
+        raise ForbiddenError(detail={"reason": "password_unavailable"})
+    if not await run_in_threadpool(
+        check_password, user.password, request.current_password
+    ):
+        raise ForbiddenError(detail={"reason": "invalid_current_password"})
+
+    user.password = await run_in_threadpool(hash_password, request.new_password)
+    await users.add_or_update_user(session, user)
+
+
 __all__ = [
     "create_bootstrap_user",
     "register",
     "login",
+    "change_password",
     "get_user_by_id",
     "delete_user",
 ]

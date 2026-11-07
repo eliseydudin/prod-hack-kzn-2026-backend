@@ -176,6 +176,7 @@ services:
       - ./nginx/http.conf:/etc/nginx/http.conf:ro
       - ./nginx/routes.conf:/etc/nginx/routes.conf:ro
       - ./nginx/tls-entrypoint.sh:/etc/nginx/tls-entrypoint.sh:ro
+      - ./nginx/auth:/etc/nginx/auth:ro
       - acme-webroot:/var/www/certbot:ro
       - tls:/etc/nginx/tls:ro
     depends_on:

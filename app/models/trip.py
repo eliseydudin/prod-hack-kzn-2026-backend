@@ -39,7 +39,7 @@ class TripBase(Base):
     )
     started_on: date
     ended_on: date | None = None
-    cover: CoverLink | None = Field(default=None, sa_type=Text)
+    cover: str | None = Field(default=None, sa_type=Text)
 
     @model_validator(mode="after")
     def validate_date_range(self):
@@ -97,7 +97,7 @@ class Trip(TripExtraBase):
 
 
 class CreateTripRequest(TripBase):
-    pass
+    cover: CoverLink | None = None
 
 
 class UpdateTripRequest(Base):
