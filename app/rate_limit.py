@@ -150,5 +150,15 @@ async def limit_refresh(request: Request, limiter: RateLimiterDep) -> None:
     )
 
 
+async def limit_password_change(limiter: RateLimiterDep, user: CurrentUser) -> None:
+    await _limit_request(
+        limiter,
+        "password_change",
+        str(user.id),
+        settings.rate_limit_login,
+        fail_closed=True,
+    )
+
+
 async def limit_user_requests(limiter: RateLimiterDep, user: CurrentUser) -> None:
     await _limit_request(limiter, "user", str(user.id), settings.rate_limit_user)

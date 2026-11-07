@@ -1,5 +1,5 @@
 from enum import auto
-from typing import Optional
+from typing import Annotated, Optional
 
 from pydantic import field_validator, model_validator
 from sqlmodel import Field, Relationship
@@ -24,6 +24,15 @@ USERNAME_EXAMPLES = [
 ]
 
 PASSWORD_REGEX = r"^[a-zA-Z0-9._?/+-]*$"
+Password = Annotated[
+    str,
+    Field(
+        min_length=8,
+        max_length=64,
+        regex=PASSWORD_REGEX,
+        schema_extra={"json_schema_extra": {"format": "password", "writeOnly": True}},
+    ),
+]
 
 
 class UserRole(PascalCaseEnum):
@@ -106,15 +115,16 @@ class User(UserExtraBase):
 
 
 class RegisterUserRequest(UserBase):
-    password: str = Field(
-        min_length=8,
+    password: Password
+
+
+class ChangePasswordRequest(Base):
+    current_password: str = Field(
+        min_length=1,
         max_length=64,
-        regex=PASSWORD_REGEX,
-        schema_extra=Extra(
-            pattern=PASSWORD_REGEX,
-            format="password",
-        ),
+        schema_extra={"json_schema_extra": {"format": "password", "writeOnly": True}},
     )
+    new_password: Password
 
 
 class CreateUserRequest(RegisterUserRequest):
