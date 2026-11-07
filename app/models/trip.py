@@ -5,7 +5,6 @@ from pydantic import (
     AfterValidator,
     HttpUrl,
     TypeAdapter,
-    field_serializer,
     model_validator,
 )
 from pydantic_core import MISSING
@@ -16,6 +15,7 @@ from app.models.collaborator import CollaboratorTable
 from app.models.types.missing import MaybeMissing
 from app.models.types.time import CreatedAt, Timestamp, UpdatedAt
 from app.models.user import UserTable
+from app.utils.unique_code import generate_unique_code
 
 if TYPE_CHECKING:
     from app.models.waypoint import WaypointTable
@@ -66,12 +66,29 @@ class TripTable(TripExtraBase, PrimaryKeyBase, table=True):
         link_model=CollaboratorTable,
         sa_relationship_kwargs={"lazy": "selectin"},
     )
+    invite_links: list[TripInviteLinkTable] = Relationship(
+        back_populates="trip",
+        sa_relationship_kwargs={
+            "lazy": "selectin",
+        },
+    )
+
+
+class TripInviteLinkTable(PrimaryKeyBase, table=True):
+    trip_id: int | None = Field(default=None, foreign_key="trip.primary_key")
+    trip: TripTable | None = Relationship(
+        back_populates="invite_links",
+        sa_relationship_kwargs={
+            "lazy": "selectin",
+        },
+    )
+    code: str = Field(default_factory=generate_unique_code)
+    max_uses: int
+    uses: int
 
 
 class Trip(TripExtraBase):
-    @field_serializer("description")
-    def serialize_description(self, value: str | None) -> str:
-        return value or ""
+    pass
 
 
 class CreateTripRequest(TripBase):
