@@ -1,13 +1,14 @@
 from pydantic import ValidationError as PydanticValidationError
-from sqlalchemy import delete, desc, select
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import col
+from sqlmodel import col, delete, desc, select
 
 from app.database.session import Session
 from app.models.trip import (
     CreateTripRequest,
     Trip,
     TripBase,
+    TripInviteLink,
+    TripInviteLinkTable,
     TripTable,
     UpdateTripRequest,
 )
@@ -15,6 +16,7 @@ from app.models.types.snowflake_id import SnowflakeId
 from app.models.user import UserTable
 from app.models.waypoint import WaypointTable
 from app.responses import ConflictError, NotFoundError, ValidationError
+from app.responses.exceptions.http import ErrorCode, InternalServerError
 
 
 async def get_owned_trip(
@@ -104,3 +106,50 @@ async def delete_trip(
     except IntegrityError as error:
         await session.rollback()
         raise ConflictError(detail={"reason": "trip_has_dependencies"}) from error
+
+
+async def generate_trip_invite_link(
+    session: Session,
+    user: UserTable,
+    trip_id: SnowflakeId,
+    max_uses: int,
+):
+    trip = await get_owned_trip(session, user, trip_id)
+    invite_link = TripInviteLinkTable(max_uses=max_uses, uses=max_uses)
+    trip.invite_links.append(invite_link)
+
+    session.add_all((trip, invite_link))
+    await session.commit()
+    await session.refresh(invite_link)
+
+    return TripInviteLink.model_validate(invite_link)
+
+
+async def get_link_by_code(session: Session, code: str):
+    query = select(TripInviteLinkTable).where(TripInviteLinkTable.code == code)
+    if res := await session.scalar(query):
+        return res
+    raise ConflictError(error_code=ErrorCode.EXPIRED_LINK)
+
+
+async def join_trip_by_invite_code(session: Session, user: UserTable, code: str):
+    link = await get_link_by_code(session, code)
+    if link.uses <= 0:
+        raise ConflictError(error_code=ErrorCode.EXPIRED_LINK)
+
+    if trip := link.trip:
+        if user in trip.collaborators or user == trip.owner:
+            raise ConflictError(error_code=ErrorCode.USER_IS_ALREADY_A_COLLABORATOR)
+
+        link.trip.collaborators.append(user)
+        link.uses -= 1
+
+        if link.uses == 0:
+            await session.delete(link)
+        else:
+            session.add(link)
+
+        session.add(user)
+        await session.commit()
+    else:
+        raise InternalServerError

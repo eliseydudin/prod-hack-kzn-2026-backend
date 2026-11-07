@@ -82,8 +82,13 @@ class TripInviteLinkTable(PrimaryKeyBase, table=True):
             "lazy": "selectin",
         },
     )
-    code: str = Field(default_factory=generate_unique_code)
+    code: str = Field(default_factory=generate_unique_code, unique=True)
     max_uses: int
+    uses: int
+
+
+class TripInviteLink(Base):
+    code: str
     uses: int
 
 

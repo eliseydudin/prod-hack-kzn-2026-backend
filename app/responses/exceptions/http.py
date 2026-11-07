@@ -23,6 +23,8 @@ class ErrorCode(PascalCaseEnum):
     USERNAME_IS_ALREADY_IN_USE = auto()
     POINT_HAS_TRANSFERS = auto()
     RATE_LIMITED = auto()
+    EXPIRED_LINK = auto()
+    USER_IS_ALREADY_A_COLLABORATOR = auto()
 
 
 @dataclass(kw_only=True, config={"alias_generator": to_camel, "validate_by_name": True})
