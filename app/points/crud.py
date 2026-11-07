@@ -1,6 +1,6 @@
-from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import raiseload
+from sqlmodel import col, select
 
 from app.database.session import Session
 from app.models.waypoint import (
@@ -13,7 +13,7 @@ from app.responses import ConflictError, ErrorCode, NotFoundError
 from app.trips.crud import get_owned_trip
 
 
-def _trip_points(trip_key: int):
+def _trip_points(trip_key: int | None):
     return (
         select(WaypointTable)
         .where(WaypointTable.trip_id == trip_key)
@@ -21,7 +21,9 @@ def _trip_points(trip_key: int):
     )
 
 
-async def _get_point(session: Session, trip_key: int, point_id: int) -> WaypointTable:
+async def _get_point(
+    session: Session, trip_key: int | None, point_id: int | None
+) -> WaypointTable:
     result = await session.execute(
         _trip_points(trip_key).where(WaypointTable.id == point_id)
     )
@@ -31,16 +33,23 @@ async def _get_point(session: Session, trip_key: int, point_id: int) -> Waypoint
     return point
 
 
-async def list_points(session: Session, owner_id: int, trip_id: int) -> list[Waypoint]:
+async def list_points(
+    session: Session,
+    owner_id: int | None,
+    trip_id: int | None,
+) -> list[Waypoint]:
     trip = await get_owned_trip(session, owner_id, trip_id)
     points = await session.scalars(
-        _trip_points(trip.primary_key).order_by(WaypointTable.primary_key)
+        _trip_points(trip.primary_key).order_by(col(WaypointTable.primary_key))
     )
     return [Waypoint.model_validate(point) for point in points]
 
 
 async def get_point(
-    session: Session, owner_id: int, trip_id: int, point_id: int
+    session: Session,
+    owner_id: int | None,
+    trip_id: int | None,
+    point_id: int | None,
 ) -> Waypoint:
     trip = await get_owned_trip(session, owner_id, trip_id)
     return Waypoint.model_validate(
@@ -49,7 +58,10 @@ async def get_point(
 
 
 async def create_point(
-    session: Session, owner_id: int, trip_id: int, request: CreateWaypointRequest
+    session: Session,
+    owner_id: int | None,
+    trip_id: int | None,
+    request: CreateWaypointRequest,
 ) -> Waypoint:
     trip = await get_owned_trip(session, owner_id, trip_id, lock=True)
     point = WaypointTable.model_validate(request, update={"trip_id": trip.primary_key})
@@ -61,9 +73,9 @@ async def create_point(
 
 async def update_point(
     session: Session,
-    owner_id: int,
-    trip_id: int,
-    point_id: int,
+    owner_id: int | None,
+    trip_id: int | None,
+    point_id: int | None,
     request: UpdateWaypointRequest,
 ) -> Waypoint:
     trip = await get_owned_trip(session, owner_id, trip_id, lock=True)
@@ -75,7 +87,10 @@ async def update_point(
 
 
 async def delete_point(
-    session: Session, owner_id: int, trip_id: int, point_id: int
+    session: Session,
+    owner_id: int | None,
+    trip_id: int | None,
+    point_id: int | None,
 ) -> None:
     trip = await get_owned_trip(session, owner_id, trip_id, lock=True)
     point = await _get_point(session, trip.primary_key, point_id)

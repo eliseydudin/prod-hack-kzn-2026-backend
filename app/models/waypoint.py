@@ -49,4 +49,4 @@ class UpdateWaypointRequest(Base):
     name: MaybeMissing[str] = Field(default=MISSING, min_length=1, max_length=128)
     description: MaybeMissing[
         Annotated[str, StringConstraints(min_length=1, max_length=512)] | None
-    ]
+    ] = MISSING

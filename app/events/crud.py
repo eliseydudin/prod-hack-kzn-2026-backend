@@ -1,4 +1,3 @@
-from pydantic import ValidationError as PydanticValidationError
 from pydantic_core import MISSING
 from sqlmodel import col, select
 
@@ -12,7 +11,8 @@ from app.models.event import (
 )
 from app.models.trip import TripTable
 from app.models.waypoint import WaypointTable
-from app.responses import NotFoundError, ValidationError
+from app.responses import NotFoundError
+from app.responses.exceptions.http import ValidationError
 from app.trips.crud import get_owned_trip
 
 
@@ -27,7 +27,7 @@ def get_trip_events(trip_key: int | None):
 async def get_event_in_trip(
     session: Session,
     trip: TripTable,
-    event_id: int,
+    event_id: int | None,
 ) -> EventTable:
     event = await session.scalar(
         get_trip_events(trip.primary_key).where(EventTable.id == event_id)
@@ -67,8 +67,8 @@ def validate_trip_dates(trip: TripTable, event: EventBase) -> None:
 
 async def list_events(
     session: Session,
-    owner_id: int,
-    trip_id: int,
+    owner_id: int | None,
+    trip_id: int | None,
 ) -> list[Event]:
     trip = await get_owned_trip(session, owner_id, trip_id)
     rows = await session.scalars(
@@ -81,9 +81,9 @@ async def list_events(
 
 async def get_event(
     session: Session,
-    owner_id: int,
-    trip_id: int,
-    event_id: int,
+    owner_id: int | None,
+    trip_id: int | None,
+    event_id: int | None,
 ) -> Event:
     trip = await get_owned_trip(session, owner_id, trip_id)
     return Event.model_validate(await get_event_in_trip(session, trip, event_id))
@@ -91,8 +91,8 @@ async def get_event(
 
 async def create_event(
     session: Session,
-    owner_id: int,
-    trip_id: int,
+    owner_id: int | None,
+    trip_id: int | None,
     request: CreateEventRequest,
 ) -> Event:
     trip = await get_owned_trip(session, owner_id, trip_id, lock=True)
@@ -109,30 +109,35 @@ async def create_event(
 
 async def update_event(
     session: Session,
-    owner_id: int,
-    trip_id: int,
-    event_id: int,
+    owner_id: int | None,
+    trip_id: int | None,
+    event_id: int | None,
     request: UpdateEventRequest,
 ) -> Event:
     trip = await get_owned_trip(session, owner_id, trip_id, lock=True)
     event = await get_event_in_trip(session, trip, event_id)
-    changes = request.model_dump(exclude_unset=True, exclude={"waypoint_id"})
 
     try:
-        validated = EventBase.model_validate(event, update=changes)
-    except PydanticValidationError as error:
-        raise ValidationError(errors=error.errors(include_input=False)) from error
-
-    try:
-        if {"started_at", "ended_at"} & changes.keys():
-            validate_trip_dates(trip, validated)
+        _validated = EventBase.model_validate(event, update=request.model_dump())
+        if _validated.ended_at:
+            validate_trip_dates(trip, _validated)
     except ValueError as e:
         raise ValidationError(errors=[str(e)])
 
     if request.waypoint_id is not MISSING:
         event.waypoint = await get_waypoint_in_trip(session, trip, request.waypoint_id)
 
-    session.add(changes)
+    for field in request.model_fields_set:
+        if field not in ("waypoint_id",):
+            setattr(event, field, getattr(request, field))
+        elif field == "waypoint_id" and request.waypoint_id is not MISSING:
+            event.waypoint = await get_waypoint_in_trip(
+                session,
+                trip,
+                request.waypoint_id,
+            )
+
+    session.add(event)
     await session.commit()
     await session.refresh(event)
     return Event.model_validate(event)
@@ -140,9 +145,9 @@ async def update_event(
 
 async def delete_event(
     session: Session,
-    owner_id: int,
-    trip_id: int,
-    event_id: int,
+    owner_id: int | None,
+    trip_id: int | None,
+    event_id: int | None,
 ) -> None:
     trip = await get_owned_trip(session, owner_id, trip_id, lock=True)
     await session.delete(await get_event_in_trip(session, trip, event_id))

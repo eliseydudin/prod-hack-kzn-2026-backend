@@ -74,7 +74,7 @@ class Trip(TripExtraBase):
 
 
 class CreateTripRequest(TripBase):
-    ended_on: date
+    pass
 
 
 class UpdateTripRequest(Base):

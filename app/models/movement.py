@@ -79,7 +79,7 @@ class UpdateMovementRequest(Base):
     transport_type: MaybeMissing[str] = Field(
         default=MISSING, min_length=1, max_length=128
     )
-    started_at: MaybeMissing[Timestamp]
-    ended_at: MaybeMissing[Timestamp | None]
-    starts_at_waypoint_id: MaybeMissing[SnowflakeId]
-    ends_at_waypoint_id: MaybeMissing[SnowflakeId]
+    started_at: MaybeMissing[Timestamp] = MISSING
+    ended_at: MaybeMissing[Timestamp | None] = MISSING
+    starts_at_waypoint_id: MaybeMissing[SnowflakeId] = MISSING
+    ends_at_waypoint_id: MaybeMissing[SnowflakeId] = MISSING

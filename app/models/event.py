@@ -10,6 +10,7 @@ from pydantic import (
     TypeAdapter,
     model_validator,
 )
+from pydantic_core import MISSING
 from sqlmodel import Field, Relationship, String, Text
 
 from app.models.base import Base, PrimaryKeyBase, SnowflakeIdBase
@@ -56,12 +57,6 @@ class EventBase(Base):
     ended_at: LocalDateTime | None = None
     booking_url: BookingUrl | None = Field(default=None, sa_type=Text)
 
-    @model_validator(mode="after")
-    def validate_time_range(self):
-        if self.ended_at is not None and self.ended_at < self.started_at:
-            raise ValueError("endedAt must be on or after startedAt")
-        return self
-
 
 class EventExtraBase(EventBase, SnowflakeIdBase):
     pass
@@ -88,12 +83,29 @@ class Event(EventExtraBase):
 class CreateEventRequest(EventBase):
     waypoint_id: EventWaypointId | None = None
 
+    @model_validator(mode="after")
+    def validate_time_range(self):
+        if self.ended_at is not None and self.ended_at < self.started_at:
+            raise ValueError("endedAt must be on or after startedAt")
+        return self
+
 
 class UpdateEventRequest(Base):
-    title: MaybeMissing[EventTitle]
-    type: MaybeMissing[EventType]
-    description: MaybeMissing[EventDescription | None]
-    started_at: MaybeMissing[LocalDateTime]
-    ended_at: MaybeMissing[LocalDateTime | None]
-    booking_url: MaybeMissing[BookingUrl | None]
-    waypoint_id: MaybeMissing[EventWaypointId | None]
+    title: MaybeMissing[EventTitle] = MISSING
+    type: MaybeMissing[EventType] = MISSING
+    description: MaybeMissing[EventDescription | None] = MISSING
+    started_at: MaybeMissing[LocalDateTime] = MISSING
+    ended_at: MaybeMissing[LocalDateTime | None] = MISSING
+    booking_url: MaybeMissing[BookingUrl | None] = MISSING
+    waypoint_id: MaybeMissing[EventWaypointId | None] = MISSING
+
+    @model_validator(mode="after")
+    def validate_time_range(self):
+        if (
+            self.ended_at is not MISSING
+            and self.started_at is not MISSING
+            and self.ended_at is not None
+            and self.ended_at < self.started_at
+        ):
+            raise ValueError("endedAt must be on or after startedAt")
+        return self
