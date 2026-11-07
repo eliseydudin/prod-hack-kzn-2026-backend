@@ -10,10 +10,13 @@ from app.models.trip import TripTable
 from app.models.types.missing import MaybeMissing
 
 
-class WaypointBase(Base):
+class WaypointLocation(Base):
     latitude: float = Field(ge=-90.0, le=90.0)
     longitude: float = Field(ge=-180.0, le=180.0)
     name: str = Field(min_length=1, max_length=128)
+
+
+class WaypointBase(WaypointLocation):
     description: str | None = Field(
         default=None,
         min_length=1,

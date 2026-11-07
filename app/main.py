@@ -29,6 +29,7 @@ from app.responses import HTTPException, RateLimitError, ValidationError, respon
 from app.responses.json import ErrorResponse
 from app.settings import settings
 from app.storage import setup_storage
+from app.tickets.router import router as tickets_router
 from app.transfers.router import router as transfers_router
 from app.trips.router import router as trips_router
 from app.utils.logger import setup_logger
@@ -65,7 +66,13 @@ app = FastAPI(
 )
 app.include_router(auth_router)
 app.include_router(admin_router)
-for router in (trips_router, points_router, transfers_router, events_router):
+for router in (
+    trips_router,
+    points_router,
+    transfers_router,
+    events_router,
+    tickets_router,
+):
     app.include_router(
         router,
         dependencies=[Depends(limit_user_requests)],
