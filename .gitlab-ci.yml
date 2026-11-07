@@ -97,8 +97,6 @@ nginx:
       -keyout /etc/nginx/tls/privkey.pem -out /etc/nginx/tls/fullchain.pem
     - nginx -t -c "$CI_PROJECT_DIR/docker/nginx/nginx.prod.conf"
 
-# Log shipping to Sage (docs/adr/0017-logs-in-sage.md): config loads and the transform
-# produces the fields Sage requires. A placeholder key: the real one is needed only on the VM.
 vector:
   extends: .check
   image:
@@ -153,8 +151,6 @@ deploy:
         "${DEPLOY_SSH_USER}@${DEPLOY_VM}:${DEPLOY_DIR}/nginx/"
       tsh scp docker/certbot/certbot.sh "${DEPLOY_SSH_USER}@${DEPLOY_VM}:${DEPLOY_DIR}/certbot/certbot.sh"
       tsh scp docker/vector/vector.toml "${DEPLOY_SSH_USER}@${DEPLOY_VM}:${DEPLOY_DIR}/vector/vector.toml"
-    # App secrets live in CI variables; the VM gets a 600 .env (rewritten on every deploy) so
-    # that manual `docker compose` calls on the server work. Values travel over stdin only.
     - |
       : "${POSTGRES_USER:?set POSTGRES_USER}" "${POSTGRES_DB:?set POSTGRES_DB}"
       : "${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}" "${JWT_TOKEN:?set JWT_TOKEN}"
