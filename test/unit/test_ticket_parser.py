@@ -1,4 +1,5 @@
 from datetime import datetime, time
+from pathlib import Path
 
 import pytest
 
@@ -9,6 +10,7 @@ from app.tickets.parser import (
     TicketParseError,
     parse_ticket,
 )
+from app.tickets.source import _pdf_text
 
 
 def test_flight_reads_iata_and_explicit_timestamps_without_passenger_data():
@@ -41,6 +43,14 @@ def test_separate_ticket_date_and_time_are_combined_without_guessing():
         "Departure date: 2026-12-11\nDeparture time: 15:00+03:00"
     )
     assert ambiguous.started_at is None
+
+
+def test_sample_pdf_preserves_times_before_footer():
+    sample = Path(__file__).resolve().parents[2] / "docs/examples/tickets/flight.pdf"
+    ticket = parse_ticket(_pdf_text(sample.read_bytes()))
+
+    assert ticket.started_at == datetime.fromisoformat("2026-12-10T15:00:00+03:00")
+    assert ticket.ended_at == datetime.fromisoformat("2026-12-10T16:30:00+03:00")
 
 
 def test_boarding_pass_reads_left_route_and_departure_from_repeated_coupons():

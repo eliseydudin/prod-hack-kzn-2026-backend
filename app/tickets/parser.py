@@ -180,7 +180,11 @@ def _fields(lines: list[str]) -> dict[str, list[str]]:
         ]
         next_line = lines[index + 1] if index + 1 < len(lines) else ""
         if next_line and not _labels(next_line):
-            if len(labels) == 1 and not _without_time(values[0]).strip():
+            if (
+                len(labels) == 1
+                and not _without_time(values[0]).strip()
+                and (not values[0] or labels[0].lastgroup in {"departure", "arrival"})
+            ):
                 values[0] = f"{values[0]} {next_line}".strip()
             elif not any(values):
                 columns = _COLUMNS.split(next_line)
