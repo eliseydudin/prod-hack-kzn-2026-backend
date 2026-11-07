@@ -1,7 +1,6 @@
 from logging import getLogger
 
 from fastapi import Response
-from sqlalchemy.exc import IntegrityError
 
 from app import users
 from app.auth.hasher import check_dummy_hash, check_password, hash_password
@@ -9,7 +8,7 @@ from app.auth.tokens import encode_token, send_refresh_token
 from app.database import Session
 from app.models.auth import AuthToken, AuthTokenResponse
 from app.models.user import CreateUserRequest, RegisterUserRequest, User, UserRole
-from app.responses import ConflictError, ErrorCode
+from app.responses import ConflictError
 from app.responses.exceptions.http import AuthorizationError, NotFoundError
 from app.settings import settings
 from app.users import delete_user, get_user_by_id
@@ -43,14 +42,11 @@ async def create_bootstrap_user(session: Session):
 
 
 async def register(session: Session, request: RegisterUserRequest):
-    try:
-        user = await users.create_user(
-            session,
-            CreateUserRequest.model_validate(request),
-            hash_password,
-        )
-    except IntegrityError:
-        raise ConflictError(error_code=ErrorCode.USERNAME_IS_ALREADY_IN_USE)
+    user = await users.create_user(
+        session,
+        CreateUserRequest.model_validate(request),
+        hash_password,
+    )
 
     logger.info(
         "User @%s (%s) registered their account",

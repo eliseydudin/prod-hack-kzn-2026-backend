@@ -17,7 +17,7 @@ from app.models.trip import CreateTripRequest
 from app.models.user import UserTable
 from app.models.waypoint import CreateWaypointRequest
 from app.points.crud import create_point, delete_point
-from app.responses import NotFoundError
+from app.responses import NotFoundError, ValidationError
 from app.settings import settings
 from app.trips.crud import create_trip
 
@@ -81,6 +81,25 @@ async def test_event_lifecycle_and_trip_scope(event_session: Session):
         earlier,
         event,
     ]
+    with pytest.raises(ValidationError):
+        await create_event(
+            event_session,
+            owner,
+            trip.id,
+            CreateEventRequest(
+                title="After the trip",
+                type=EventType.OTHER,
+                started_at=datetime(2026, 12, 14, 12),
+            ),
+        )
+    for changes in (
+        UpdateEventRequest(ended_at=datetime(2026, 12, 11, 22)),
+        UpdateEventRequest(started_at=datetime(2026, 12, 14, 12), ended_at=None),
+    ):
+        with pytest.raises(ValidationError):
+            await update_event(event_session, owner, trip.id, event.id, changes)
+    assert await get_event(event_session, owner, trip.id, event.id) == event
+
     with pytest.raises(NotFoundError):
         await list_events(event_session, other, trip.id)
     with pytest.raises(NotFoundError):

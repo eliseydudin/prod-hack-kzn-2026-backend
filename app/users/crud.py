@@ -1,5 +1,6 @@
 from collections.abc import Callable
 
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import col, select
 
 from app.database import Session
@@ -9,6 +10,7 @@ from app.models.user import (
     UserRole,
     UserTable,
 )
+from app.responses import ConflictError, ErrorCode
 
 
 async def add_or_update_user(session: Session, user: UserTable):
@@ -62,7 +64,11 @@ async def create_user(
             "password": hasher(request.password),
         },
     )
-    return await add_or_update_user(session, user)
+    try:
+        return await add_or_update_user(session, user)
+    except IntegrityError as error:
+        await session.rollback()
+        raise ConflictError(error_code=ErrorCode.USERNAME_IS_ALREADY_IN_USE) from error
 
 
 async def delete_user(session: Session, user: UserTable):

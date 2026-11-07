@@ -44,7 +44,7 @@ class UserBase(Base):
         ),
     )
 
-    @field_validator("username", mode="before")
+    @field_validator("username")
     @classmethod
     def validate_username(cls, username: str):
         if username[0].isdigit():

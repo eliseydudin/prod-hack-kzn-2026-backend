@@ -1,3 +1,4 @@
+from pydantic import ValidationError as PydanticValidationError
 from pydantic_core import MISSING
 from sqlmodel import col, select
 
@@ -56,13 +57,15 @@ async def get_waypoint_in_trip(
 
 
 def validate_trip_dates(trip: TripTable, event: EventBase) -> None:
+    if event.ended_at is not None and event.ended_at < event.started_at:
+        raise ValidationError(errors=["endedAt must be on or after startedAt"])
     if event.started_at.date() < trip.started_on:
-        raise ValueError("event starts before the trip")
-    elif (
+        raise ValidationError(errors=["event starts before the trip"])
+    if (
         trip.ended_on is not None
         and (event.ended_at or event.started_at).date() > trip.ended_on
     ):
-        raise ValueError("event ends after the trip")
+        raise ValidationError(errors=["event ends after the trip"])
 
 
 async def list_events(
@@ -117,27 +120,17 @@ async def update_event(
     trip = await get_owned_trip(session, owner, trip_id, lock=True)
     event = await get_event_in_trip(session, trip, event_id)
 
+    changes = request.model_dump(exclude_unset=True, exclude={"waypoint_id"})
     try:
-        _validated = EventBase.model_validate(event, update=request.model_dump())
-        if _validated.ended_at:
-            validate_trip_dates(trip, _validated)
-    except ValueError as e:
-        raise ValidationError(errors=[str(e)])
+        updated = EventBase.model_validate(event, update=changes)
+    except PydanticValidationError as error:
+        raise ValidationError(errors=error.errors(include_input=False)) from error
+    validate_trip_dates(trip, updated)
 
     if request.waypoint_id is not MISSING:
         event.waypoint = await get_waypoint_in_trip(session, trip, request.waypoint_id)
 
-    for field in request.model_fields_set:
-        if field not in ("waypoint_id",):
-            setattr(event, field, getattr(request, field))
-        elif field == "waypoint_id" and request.waypoint_id is not MISSING:
-            event.waypoint = await get_waypoint_in_trip(
-                session,
-                trip,
-                request.waypoint_id,
-            )
-
-    session.add(event)
+    event.sqlmodel_update(changes)
     await session.commit()
     await session.refresh(event)
     return Event.model_validate(event)

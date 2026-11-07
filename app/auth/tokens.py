@@ -9,7 +9,6 @@ from app.database.connection import SessionDep
 from app.database.session import Session
 from app.models.auth import AuthToken, RefreshToken
 from app.models.base import Base
-from app.models.types.time import utc_now
 from app.models.user import UserRole, UserTable
 from app.responses import AuthorizationError, ForbiddenError, NotFoundError
 from app.settings import settings
@@ -99,14 +98,25 @@ def send_refresh_token(user: UserTable, response: Response):
 
 
 def delete_refresh_token(response: Response):
-    response.delete_cookie(key="refresh_token")
+    response.set_cookie(
+        key="refresh_token",
+        max_age=0,
+        expires=0,
+        domain=settings.cookie_domain,
+        httponly=True,
+        samesite="none",
+        secure=True,
+        partitioned=True,
+    )
 
 
-def get_refresh_token(refresh_token: str = Cookie()):
-    tok = decode_token(refresh_token, RefreshToken)
-    if utc_now() > tok.exp:
+def get_refresh_token(refresh_token: str | None = Cookie(default=None)):
+    if not refresh_token:
         raise AuthorizationError
-    return tok
+    try:
+        return decode_token(refresh_token, RefreshToken)
+    except ValidationError, jwt.PyJWTError:
+        raise AuthorizationError
 
 
 RefreshTokenDep = Annotated[RefreshToken, Depends(get_refresh_token)]

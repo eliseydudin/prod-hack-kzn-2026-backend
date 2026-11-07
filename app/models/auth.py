@@ -24,6 +24,8 @@ class AuthToken(Base):
 
 
 class RefreshToken(Base):
+    model_config = SQLModelConfig(extra="forbid")
+
     sub: SnowflakeIdStr
     exp: IntTimestamp = UtcDefault(delay=timedelta(days=7))
 
