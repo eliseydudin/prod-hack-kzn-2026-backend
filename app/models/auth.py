@@ -3,6 +3,7 @@ from typing import Annotated, Literal
 
 from pydantic import PlainSerializer
 from sqlmodel import Field
+from sqlmodel._compat import SQLModelConfig
 
 from app.models.base import Base
 from app.models.types.extra import Extra
@@ -28,8 +29,7 @@ class RefreshToken(Base):
 
 
 class AuthTokenResponse(Base):
-    class Config:
-        alias_generator = None
+    model_config = SQLModelConfig(alias_generator=None)
 
     access_token: str = Field(schema_extra=Extra(pattern=JWT_TOKEN_PATTERN))
     token_type: Literal["bearer"] = "bearer"

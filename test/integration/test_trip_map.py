@@ -52,7 +52,7 @@ async def _create_owner(session: Session) -> int:
         CreateUserRequest(username=f"map{uuid4().hex[:24]}", password="password"),
         hash_password,
     )
-    return user.primary_key
+    return user.primary_key  # type: ignore
 
 
 async def _create_trip(session: Session, owner_id: int) -> int:
@@ -200,7 +200,11 @@ async def test_patch_transfer_releases_replaced_point(map_session: Session):
     changes = {"ends_at_waypoint_id": replacement.id}
 
     updated = await update_transfer(
-        map_session, owner_id, trip_id, original.id, UpdateMovementRequest(**changes)
+        map_session,
+        owner_id,
+        trip_id,
+        original.id,
+        UpdateMovementRequest(**changes),  # type: ignore
     )
 
     expected = original.model_copy(update=changes)

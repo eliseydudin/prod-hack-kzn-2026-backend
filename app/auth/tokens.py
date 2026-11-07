@@ -16,8 +16,8 @@ from app.settings import settings
 from app.users.crud import get_user_by_id
 
 oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl="auth/login",
-    refreshUrl="/auth/refresh",
+    tokenUrl="/api/v1/auth/login",
+    refreshUrl="/api/v1/auth/refresh",
     auto_error=False,
 )
 oauth2_scheme.make_not_authenticated_error = lambda: AuthorizationError()  # type: ignore
