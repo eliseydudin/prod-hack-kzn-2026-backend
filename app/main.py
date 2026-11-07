@@ -16,6 +16,7 @@ from app.database import get_session_ctx, setup_tables
 from app.events.router import router as events_router
 from app.models.status import Status
 from app.points.router import router as points_router
+from app.product_metrics import product_metrics_lifespan, track_trip_activity
 from app.push.router import router as push_router
 from app.rate_limit import limit_user_requests, rate_limit_lifespan
 from app.responses import HTTPException, RateLimitError, ValidationError, responses
@@ -44,7 +45,7 @@ async def lifespan(app: FastAPI):
     if settings.storage is not None:
         app.state.storage = await run_in_threadpool(setup_storage, settings.storage)
 
-    async with rate_limit_lifespan():
+    async with rate_limit_lifespan() as limiter, product_metrics_lifespan(limiter):
         logger.info("Setup complete")
         yield
 
@@ -59,7 +60,7 @@ app.include_router(admin_router)
 for router in (trips_router, points_router, transfers_router, events_router):
     app.include_router(
         router,
-        dependencies=[Depends(limit_user_requests)],
+        dependencies=[Depends(limit_user_requests), Depends(track_trip_activity)],
         responses=responses(RateLimitError),
     )
 app.include_router(push_router)

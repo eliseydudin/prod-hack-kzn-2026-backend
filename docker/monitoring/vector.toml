@@ -69,9 +69,53 @@ type = "histogram"
 field = "request_time"
 name = "api_http_request_duration_seconds"
 
+[transforms.product_snapshots]
+type = "filter"
+inputs = ["logs"]
+condition = '.service == "api" && .event == "travelhub_product_snapshot"'
+
+[transforms.product_metrics]
+type = "log_to_metric"
+inputs = ["product_snapshots"]
+
+[[transforms.product_metrics.metrics]]
+type = "gauge"
+field = "metrics.active_users_24h"
+name = "travelhub_product_active_users_24h"
+
+[[transforms.product_metrics.metrics]]
+type = "gauge"
+field = "metrics.active_users_7d"
+name = "travelhub_product_active_users_7d"
+
+[[transforms.product_metrics.metrics]]
+type = "gauge"
+field = "metrics.enabled_accounts"
+name = "travelhub_product_enabled_accounts"
+
+[[transforms.product_metrics.metrics]]
+type = "gauge"
+field = "metrics.new_accounts_24h"
+name = "travelhub_product_new_accounts_24h"
+
+[[transforms.product_metrics.metrics]]
+type = "gauge"
+field = "metrics.trip_owners"
+name = "travelhub_product_trip_owners"
+
+[[transforms.product_metrics.metrics]]
+type = "gauge"
+field = "metrics.trip_owners_with_mapped_events"
+name = "travelhub_product_trip_owners_with_mapped_events"
+
+[[transforms.product_metrics.metrics]]
+type = "gauge"
+field = "metrics.sample_timestamp_seconds"
+name = "travelhub_product_sample_timestamp_seconds"
+
 [sinks.prometheus]
 type = "prometheus_exporter"
-inputs = ["api_metrics", "vector_metrics"]
+inputs = ["api_metrics", "product_metrics", "vector_metrics"]
 address = "0.0.0.0:9598"
 flush_period_secs = 0
 suppress_timestamp = true
@@ -118,3 +162,26 @@ log_fields.label."com.docker.compose.service" = "nginx"
 [[tests.outputs]]
 extract_from = "logs"
 conditions = [{type = "vrl", source = 'assert!(.level == "error" && !contains(string!(.message), "token=") && contains(string!(.message), "/api/v1/trips HTTP/1.1"))'}]
+
+[[tests]]
+name = "Only the API emits absolute product gauges"
+
+[[tests.inputs]]
+insert_at = "logs"
+type = "log"
+log_fields.message = '{"event":"travelhub_product_snapshot","metrics":{"active_users_24h":3,"active_users_7d":8,"enabled_accounts":20,"new_accounts_24h":4,"trip_owners":10,"trip_owners_with_mapped_events":5,"sample_timestamp_seconds":1794080000}}'
+log_fields.label."com.docker.compose.service" = "api"
+
+[[tests.inputs]]
+insert_at = "logs"
+type = "log"
+log_fields.message = '{"event":"travelhub_product_snapshot","metrics":{"active_users_24h":999,"active_users_7d":999,"enabled_accounts":999,"new_accounts_24h":999,"trip_owners":999,"trip_owners_with_mapped_events":999,"sample_timestamp_seconds":999}}'
+log_fields.label."com.docker.compose.service" = "nginx"
+
+[[tests.outputs]]
+extract_from = "product_snapshots"
+conditions = [{type = "vrl", source = 'assert_eq!(.metrics.active_users_24h, 3)'}]
+
+[[tests.outputs]]
+extract_from = "product_metrics"
+conditions = [{type = "vrl", source = 'assert!(starts_with(string!(.name), "travelhub_product_") && .kind == "absolute" && .type == "gauge")'}]

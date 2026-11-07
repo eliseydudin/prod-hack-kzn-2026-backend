@@ -10,6 +10,7 @@ from valkey.exceptions import OutOfMemoryError, ReadOnlyError
 from app.auth.tokens import get_current_user
 from app.database.connection import get_session
 from app.main import app
+from app.models.user import UserRole
 from app.rate_limit import RateLimiter, get_rate_limiter
 from app.responses import RateLimitError, ServiceUnavailableError
 from app.settings import settings
@@ -106,12 +107,17 @@ def test_valkey_outage_blocks_login_and_preserves_authenticated_routes(
     monkeypatch: MonkeyPatch, api_without_db, error
 ):
     evaluate = AsyncMock(side_effect=error)
-    limiter = RateLimiter(SimpleNamespace(eval=evaluate), window_seconds=60)
+    limiter = RateLimiter(
+        SimpleNamespace(eval=evaluate, zadd=AsyncMock(side_effect=error)),
+        window_seconds=60,
+    )
     monkeypatch.setitem(app.dependency_overrides, get_rate_limiter, lambda: limiter)
 
     assert api_without_db.post("/api/v1/auth/login", data=LOGIN_FORM).status_code == 503
 
-    resolve_user = AsyncMock(return_value=SimpleNamespace(id=123, primary_key=1))
+    resolve_user = AsyncMock(
+        return_value=SimpleNamespace(id=123, primary_key=1, role=UserRole.USER)
+    )
 
     async def user_override():
         return await resolve_user()
