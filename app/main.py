@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from logging import getLogger
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
@@ -9,6 +9,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.admin.router import router as admin_router
 from app.auth.impl import create_bootstrap_user
+from app.auth.router import change_password
 from app.auth.router import router as auth_router
 from app.database import get_session_ctx, setup_tables
 from app.events.router import router as events_router
@@ -99,12 +100,13 @@ async def handle_http_exceptions(_app, error: HTTPException):
 
 
 @app.exception_handler(RequestValidationError)
-async def handle_validation_error(_request, error: RequestValidationError):
+async def handle_validation_error(request: Request, error: RequestValidationError):
     validation_error = ValidationError.from_fastapi(error)
-    validation_error.errors = [
-        {key: value for key, value in item.items() if key not in {"input", "ctx"}}
-        for item in validation_error.errors
-    ]
+    if request.scope.get("endpoint") is change_password:
+        validation_error.errors = [
+            {key: value for key, value in item.items() if key != "input"}
+            for item in validation_error.errors
+        ]
     return ErrorResponse(
         validation_error.dump_python(),
         status_code=ValidationError.status_code,
