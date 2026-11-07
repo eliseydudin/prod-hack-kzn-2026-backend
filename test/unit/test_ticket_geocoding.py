@@ -86,10 +86,32 @@ async def test_geocoder_validates_address_order_and_coordinates(
     lookup.assert_called_once()
 
 
+async def test_geocoder_accepts_passenger_station_name(monkeypatch):
+    result = _result("railway", "station", 55.7886328)
+    result["properties"].update(name="Казань-Пассажирская", city="Казань")
+    result["geometry"]["coordinates"] = [49.0997021, 55.7886328]
+    lookup = Mock(return_value=[result])
+    monkeypatch.setattr(geocoding, "_photon_results", lookup)
+
+    point = await geocoding.resolve_ticket_place(
+        ParsedPlace("Казань-Пассажирская"), TicketKind.TRAIN
+    )
+
+    assert point is not None
+    assert (point.latitude, point.longitude) == (55.7886328, 49.0997021)
+    lookup.assert_called_once()
+
+
 async def test_geocoder_does_not_receive_unlabelled_passenger_tail(monkeypatch):
     lookup = Mock()
     monkeypatch.setattr(geocoding, "_photon_results", lookup)
-    for name in ("Paddington Passenger Ada Lovelace", "Москва пассажир Иван Иванов"):
+    for name in (
+        "Paddington Passenger Ada Lovelace",
+        "Москва пассажир Иван Иванов",
+        "Москва пассажира Ивана Иванова",
+        "Москва пассажиров Иванов Петров",
+        "Казань-Пассажирская пассажир Иван Иванов",
+    ):
         assert (
             await geocoding.resolve_ticket_place(ParsedPlace(name), TicketKind.TRAIN)
             is None

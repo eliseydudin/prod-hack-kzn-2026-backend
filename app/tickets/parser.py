@@ -58,7 +58,7 @@ _CONTACT_DATA = re.compile(
 )
 _PERSONAL_DATA = re.compile(
     r"\b(?:passenger|guest|travell?er|billing|payment|surname|first name"
-    r"|пассажир\w*|гостя|фамили\w*|плательщик\w*|фио)\b",
+    r"|пассажир(?!ск)\w*|гостя|фамили\w*|плательщик\w*|фио)\b",
     re.IGNORECASE,
 )
 _COLUMNS = re.compile(r"\t+| {2,}|\s*\|\s*")
