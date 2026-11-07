@@ -21,7 +21,7 @@ class WaypointBase(Base):
 
 
 class WaypointExtraBase(WaypointBase, SnowflakeIdBase):
-    pass
+    visited: bool = False
 
 
 class WaypointTable(WaypointExtraBase, PrimaryKeyBase, table=True):
