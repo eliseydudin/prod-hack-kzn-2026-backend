@@ -1,7 +1,10 @@
 from asyncio import timeout
+from contextlib import asynccontextmanager
+from functools import cache
 from logging import getLogger
+from typing import Annotated
 
-from fastapi import Request
+from fastapi import Depends, Request
 from valkey.asyncio import BlockingConnectionPool, Valkey
 from valkey.asyncio.retry import Retry
 from valkey.backoff import NoBackoff
@@ -79,15 +82,40 @@ class RateLimiter:
             raise RateLimitError(retry_after=max(1, (ttl_ms + 999) // 1000))
 
 
+@cache
+def _get_rate_limiter() -> RateLimiter | None:
+    if settings.redis_url is None:
+        return None
+    client = create_rate_limit_client(str(settings.redis_url))
+    return RateLimiter(client, settings.rate_limit_window_seconds)
+
+
+async def get_rate_limiter() -> RateLimiter | None:
+    return _get_rate_limiter()
+
+
+RateLimiterDep = Annotated[RateLimiter | None, Depends(get_rate_limiter)]
+
+
+@asynccontextmanager
+async def rate_limit_lifespan():
+    limiter = _get_rate_limiter()
+    try:
+        yield
+    finally:
+        _get_rate_limiter.cache_clear()
+        if limiter is not None:
+            await limiter.client.aclose()
+
+
 async def _limit_request(
-    request: Request,
+    limiter: RateLimiter | None,
     policy: str,
     subject: str,
     limit: int,
     *,
     fail_closed: bool = False,
 ) -> None:
-    limiter: RateLimiter | None = getattr(request.app.state, "rate_limiter", None)
     if limiter is not None:
         await limiter.enforce(policy, subject, limit, fail_closed=fail_closed)
 
@@ -96,9 +124,9 @@ def _client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-async def limit_login(request: Request) -> None:
+async def limit_login(request: Request, limiter: RateLimiterDep) -> None:
     await _limit_request(
-        request,
+        limiter,
         "login",
         _client_ip(request),
         settings.rate_limit_login,
@@ -106,9 +134,9 @@ async def limit_login(request: Request) -> None:
     )
 
 
-async def limit_registration(request: Request) -> None:
+async def limit_registration(request: Request, limiter: RateLimiterDep) -> None:
     await _limit_request(
-        request,
+        limiter,
         "register",
         _client_ip(request),
         settings.rate_limit_register,
@@ -116,11 +144,11 @@ async def limit_registration(request: Request) -> None:
     )
 
 
-async def limit_refresh(request: Request) -> None:
+async def limit_refresh(request: Request, limiter: RateLimiterDep) -> None:
     await _limit_request(
-        request, "refresh", _client_ip(request), settings.rate_limit_refresh
+        limiter, "refresh", _client_ip(request), settings.rate_limit_refresh
     )
 
 
-async def limit_user_requests(request: Request, user: CurrentUser) -> None:
-    await _limit_request(request, "user", str(user.id), settings.rate_limit_user)
+async def limit_user_requests(limiter: RateLimiterDep, user: CurrentUser) -> None:
+    await _limit_request(limiter, "user", str(user.id), settings.rate_limit_user)

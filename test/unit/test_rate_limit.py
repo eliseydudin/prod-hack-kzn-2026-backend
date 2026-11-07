@@ -10,7 +10,7 @@ from valkey.exceptions import OutOfMemoryError, ReadOnlyError
 from app.auth.tokens import get_current_user
 from app.database.connection import get_session
 from app.main import app
-from app.rate_limit import RateLimiter
+from app.rate_limit import RateLimiter, get_rate_limiter
 from app.responses import RateLimitError, ServiceUnavailableError
 from app.settings import settings
 from test.client import client
@@ -75,7 +75,7 @@ def test_limit_returns_shared_error_and_exposes_retry_after(
 ):
     evaluate = AsyncMock(return_value=(2, 1501))
     limiter = RateLimiter(SimpleNamespace(eval=evaluate), window_seconds=60)
-    monkeypatch.setattr(app.state, "rate_limiter", limiter, raising=False)
+    monkeypatch.setitem(app.dependency_overrides, get_rate_limiter, lambda: limiter)
     monkeypatch.setattr(settings, "rate_limit_login", 1)
 
     origin = "http://localhost:3000"
@@ -107,7 +107,7 @@ def test_valkey_outage_blocks_login_and_preserves_authenticated_routes(
 ):
     evaluate = AsyncMock(side_effect=error)
     limiter = RateLimiter(SimpleNamespace(eval=evaluate), window_seconds=60)
-    monkeypatch.setattr(app.state, "rate_limiter", limiter, raising=False)
+    monkeypatch.setitem(app.dependency_overrides, get_rate_limiter, lambda: limiter)
 
     assert api_without_db.post("/api/v1/auth/login", data=LOGIN_FORM).status_code == 503
 

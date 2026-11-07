@@ -14,7 +14,7 @@ from app.database import get_session_ctx, setup_tables
 from app.events.router import router as events_router
 from app.models.status import Status
 from app.points.router import router as points_router
-from app.rate_limit import RateLimiter, create_rate_limit_client, limit_user_requests
+from app.rate_limit import limit_user_requests, rate_limit_lifespan
 from app.responses import HTTPException, RateLimitError, ValidationError, responses
 from app.settings import settings
 from app.transfers.router import router as transfers_router
@@ -30,27 +30,15 @@ def generate_unique_name(route: APIRoute):
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
     setup_logger(logger)
     await setup_tables()
     async with get_session_ctx() as sesh:
         await create_bootstrap_user(sesh)
 
-    client = (
-        create_rate_limit_client(str(settings.redis_url))
-        if settings.redis_url
-        else None
-    )
-    app.state.rate_limiter = (
-        RateLimiter(client, settings.rate_limit_window_seconds) if client else None
-    )
-
-    logger.info("Setup complete")
-    try:
+    async with rate_limit_lifespan():
+        logger.info("Setup complete")
         yield
-    finally:
-        if client is not None:
-            await client.aclose()
 
 
 app = FastAPI(
