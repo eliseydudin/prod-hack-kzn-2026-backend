@@ -1,5 +1,4 @@
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import raiseload
 from sqlmodel import col, select
 
 from app.database.session import Session
@@ -17,13 +16,13 @@ from app.trips.crud import get_owned_trip
 
 
 def _trip_points(trip: TripTable):
-    return (
-        select(WaypointTable).where(WaypointTable.trip == trip).options(raiseload("*"))
-    )
+    return select(WaypointTable).where(WaypointTable.trip == trip)
 
 
 async def _get_point(
-    session: Session, trip: TripTable, point_id: SnowflakeId
+    session: Session,
+    trip: TripTable,
+    point_id: SnowflakeId,
 ) -> WaypointTable:
     result = await session.execute(
         _trip_points(trip).where(WaypointTable.id == point_id)

@@ -50,3 +50,4 @@ class UpdateWaypointRequest(Base):
     description: MaybeMissing[
         Annotated[str, StringConstraints(min_length=1, max_length=512)] | None
     ] = MISSING
+    visited: MaybeMissing[bool] = MISSING
