@@ -14,7 +14,7 @@ from app.models.base import Base, PrimaryKeyBase, SnowflakeIdBase
 from app.models.collaborator import CollaboratorTable
 from app.models.types.missing import MaybeMissing
 from app.models.types.time import CreatedAt, Timestamp, UpdatedAt
-from app.models.user import UserTable
+from app.models.user import User, UserTable
 from app.utils.unique_code import generate_unique_code
 
 if TYPE_CHECKING:
@@ -110,3 +110,8 @@ class UpdateTripRequest(Base):
     started_on: MaybeMissing[date] = Field(default=MISSING)
     ended_on: MaybeMissing[date | None] = Field(default=MISSING)
     cover: MaybeMissing[CoverLink | None] = Field(default=MISSING)
+
+
+class TripCollaborators(Base):
+    owner: User
+    collaborators: list[User]

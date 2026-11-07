@@ -4,13 +4,20 @@ from fastapi import APIRouter, Path, Query, status
 
 from app.auth.tokens import CurrentUser
 from app.database.connection import SessionDep
-from app.models.trip import CreateTripRequest, Trip, TripInviteLink, UpdateTripRequest
+from app.models.trip import (
+    CreateTripRequest,
+    Trip,
+    TripCollaborators,
+    TripInviteLink,
+    UpdateTripRequest,
+)
 from app.models.types.snowflake_id import SnowflakeId
 from app.responses import AuthorizationError, ConflictError, NotFoundError, responses
 from app.trips.crud import (
     create_trip,
     delete_trip,
     generate_trip_invite_link,
+    get_collaborators_on_trip,
     get_trip,
     join_trip_by_invite_code,
     list_trips,
@@ -20,13 +27,13 @@ from app.trips.crud import (
 router = APIRouter(prefix="/trips", tags=["trips"])
 
 
-@router.get("", responses=responses(AuthorizationError))
+@router.get("/", responses=responses(AuthorizationError))
 async def get_trips(session: SessionDep, user: CurrentUser) -> list[Trip]:
     return await list_trips(session, user)
 
 
 @router.post(
-    "",
+    "/",
     status_code=status.HTTP_201_CREATED,
     responses=responses(AuthorizationError),
 )
@@ -48,6 +55,18 @@ async def get_trip_by_id(
     user: CurrentUser,
 ) -> Trip:
     return await get_trip(session, user, trip_id)
+
+
+@router.get(
+    "/{trip_id}/collaboratrs",
+    responses=responses(AuthorizationError, NotFoundError),
+)
+async def get_trip_by_id_collaborators(
+    trip_id: Annotated[SnowflakeId, Path(gt=0)],
+    session: SessionDep,
+    user: CurrentUser,
+) -> TripCollaborators:
+    return await get_collaborators_on_trip(session, user, trip_id)
 
 
 @router.patch(

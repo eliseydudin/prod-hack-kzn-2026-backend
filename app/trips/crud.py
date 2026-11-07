@@ -9,13 +9,14 @@ from app.models.trip import (
     CreateTripRequest,
     Trip,
     TripBase,
+    TripCollaborators,
     TripInviteLink,
     TripInviteLinkTable,
     TripTable,
     UpdateTripRequest,
 )
 from app.models.types.snowflake_id import SnowflakeId
-from app.models.user import UserTable
+from app.models.user import User, UserTable
 from app.models.waypoint import WaypointTable
 from app.responses import ConflictError, NotFoundError, ValidationError
 from app.responses.exceptions.http import ErrorCode, InternalServerError
@@ -154,3 +155,15 @@ async def join_trip_by_invite_code(session: Session, user: UserTable, code: str)
         await session.commit()
     else:
         raise InternalServerError
+
+
+async def get_collaborators_on_trip(
+    session: Session,
+    user: UserTable,
+    trip_id: SnowflakeId,
+):
+    trip = await get_owned_trip(session, user, trip_id)
+    return TripCollaborators(
+        owner=User.model_validate(trip.owner),
+        collaborators=[User.model_validate(user) for user in trip.collaborators],
+    )
