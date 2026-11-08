@@ -12,6 +12,7 @@ from app.auth.impl import create_bootstrap_user
 from app.auth.router import router as auth_router
 from app.database import get_session_ctx, setup_tables
 from app.events.router import router as events_router
+from app.files import router as files_router
 from app.integrations.google_drive.logging import setup_drive_logging
 from app.integrations.google_drive.middleware import (
     DriveUploadLimit,
@@ -78,6 +79,7 @@ for router in (
         responses=responses(RateLimitError),
     )
 app.include_router(push_router)
+app.include_router(files_router)
 
 app.include_router(google_drive_router)
 app.add_middleware(GoogleDriveMiddleware, config=settings)

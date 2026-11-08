@@ -25,7 +25,7 @@ from app.responses import (
     UnsupportedMediaTypeError,
     responses,
 )
-from app.storage import StorageDep
+from app.storage import IMAGE_SIGNATURES, StorageDep, read_upload
 from app.trips.archive_router import router as archive_router
 from app.trips.crud import (
     create_trip,
@@ -43,11 +43,6 @@ from app.trips.crud import (
 router = APIRouter(prefix="/trips", tags=["trips"])
 
 MAX_COVER_BYTES = 5 * 1024 * 1024
-COVER_SIGNATURES = {
-    "image/jpeg": ((0, b"\xff\xd8\xff"),),
-    "image/png": ((0, b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"),),
-    "image/webp": ((0, b"RIFF"), (8, b"WEBPVP8")),
-}
 
 
 @router.get("/", responses=responses(AuthorizationError))
@@ -124,7 +119,7 @@ async def patch_trip(
             "required": True,
             "content": {
                 mime: {"schema": {"type": "string", "format": "binary"}}
-                for mime in COVER_SIGNATURES
+                for mime in IMAGE_SIGNATURES
             },
         },
     },
@@ -139,22 +134,9 @@ async def put_trip_cover(
     if storage is None:
         raise ServiceUnavailableError()
 
-    content_type = (
-        request.headers.get("content-type", "").partition(";")[0].strip().lower()
+    data, content_type = await read_upload(
+        request, IMAGE_SIGNATURES, MAX_COVER_BYTES, too_large_reason="cover_too_large"
     )
-    if content_type not in COVER_SIGNATURES:
-        raise UnsupportedMediaTypeError()
-
-    data = bytearray()
-    async for chunk in request.stream():
-        if len(data) + len(chunk) > MAX_COVER_BYTES:
-            raise PayloadTooLargeError(detail={"reason": "cover_too_large"})
-        data.extend(chunk)
-    if not all(
-        data.startswith(signature, offset)
-        for offset, signature in COVER_SIGNATURES[content_type]
-    ):
-        raise UnsupportedMediaTypeError()
 
     cover = request.url_for("get_trip_cover", trip_id=trip_id, cover_id=uuid4()).path
     return await save_trip_cover(
@@ -169,7 +151,7 @@ async def put_trip_cover(
         AuthorizationError,
         NotFoundError,
         ServiceUnavailableError,
-        *(Content(200, mime) for mime in COVER_SIGNATURES),
+        *(Content(200, mime) for mime in IMAGE_SIGNATURES),
     ),
 )
 async def get_trip_cover(
@@ -191,7 +173,7 @@ async def get_trip_cover(
     return Response(
         data,
         media_type=content_type
-        if content_type in COVER_SIGNATURES
+        if content_type in IMAGE_SIGNATURES
         else "application/octet-stream",
         headers={
             "Cache-Control": "private, no-store",

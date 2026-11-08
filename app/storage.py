@@ -11,10 +11,47 @@ from minio.error import MinioException, S3Error
 from urllib3 import PoolManager, Timeout
 from urllib3.exceptions import HTTPError
 
-from app.responses import NotFoundError, ServiceUnavailableError
+from app.responses import (
+    NotFoundError,
+    PayloadTooLargeError,
+    ServiceUnavailableError,
+    UnsupportedMediaTypeError,
+)
 from app.settings import StorageSettings
 
 logger = getLogger(__name__)
+
+IMAGE_SIGNATURES = {
+    "image/jpeg": ((0, b"\xff\xd8\xff"),),
+    "image/png": ((0, b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"),),
+    "image/webp": ((0, b"RIFF"), (8, b"WEBPVP8")),
+}
+
+
+async def read_upload(
+    request: Request,
+    signatures: dict[str, tuple[tuple[int, bytes], ...]],
+    max_bytes: int,
+    *,
+    too_large_reason: str,
+) -> tuple[bytearray, str]:
+    content_type = (
+        request.headers.get("content-type", "").partition(";")[0].strip().lower()
+    )
+    if content_type not in signatures:
+        raise UnsupportedMediaTypeError()
+
+    data = bytearray()
+    async for chunk in request.stream():
+        if len(data) + len(chunk) > max_bytes:
+            raise PayloadTooLargeError(detail={"reason": too_large_reason})
+        data.extend(chunk)
+    if not all(
+        data.startswith(signature, offset)
+        for offset, signature in signatures[content_type]
+    ):
+        raise UnsupportedMediaTypeError()
+    return data, content_type
 
 
 @dataclass
