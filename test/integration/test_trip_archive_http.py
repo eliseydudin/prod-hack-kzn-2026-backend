@@ -6,6 +6,7 @@ from uuid import uuid4
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import func, text
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlmodel import select
 
@@ -20,9 +21,10 @@ from app.models.movement import MovementTable
 from app.models.trip import TripInviteLinkTable, TripTable
 from app.models.trip_archive import TripArchive
 from app.models.user import UserTable
-from app.models.waypoint import WaypointTable
+from app.models.waypoint import CreateWaypointRequest, WaypointTable
+from app.points.crud import create_point
 from app.settings import settings
-from app.trips.archive import import_trip
+from app.trips.archive import export_trip, import_trip
 from app.trips.archive_router import MAX_ARCHIVE_BYTES
 
 
@@ -392,3 +394,55 @@ async def test_archive_child_id_collisions_are_remapped(archive_http, monkeypatc
     assert {event.waypoint.id for event in events if event.waypoint is not None} == {72}
     movement = await session.scalar(select(MovementTable).where(MovementTable.id == 75))
     assert movement.starts_at_waypoint.id == 71 and movement.ends_at_waypoint.id == 72
+
+
+async def test_export_keeps_a_consistent_graph_while_points_are_changed():
+    engine = create_async_engine(settings.database_url.unicode_string())
+    try:
+        async with Session(engine, expire_on_commit=False) as reader:
+            owner = UserTable(username=f"snapshot{uuid4().hex[:24]}", password=None)
+            reader.add(owner)
+            await reader.commit()
+            trip = await import_trip(
+                reader, owner, TripArchive.model_validate(_document())
+            )
+            snapshot = await export_trip(reader, owner, trip.id)
+            try:
+                async with Session(engine, expire_on_commit=False) as writer:
+                    actor = await writer.get(UserTable, owner.primary_key)
+                    point = CreateWaypointRequest(
+                        name="Later", latitude=56, longitude=50
+                    )
+                    await writer.execute(text("SET LOCAL lock_timeout = '100ms'"))
+                    with pytest.raises(DBAPIError, match="lock timeout"):
+                        await create_point(writer, actor, trip.id, point)
+                    await writer.rollback()
+                    await reader.rollback()
+                    await create_point(writer, actor, trip.id, point)
+                refreshed = await export_trip(reader, owner, trip.id)
+                assert len(snapshot.points) == 2
+                assert len(refreshed.points) == 3
+            finally:
+                await reader.rollback()
+                source = await reader.scalar(
+                    select(TripTable).where(TripTable.id == trip.id)
+                )
+                await reader.execute(
+                    text(
+                        "DELETE FROM movement WHERE starts_at_waypoint_id IN (SELECT primary_key FROM waypoint WHERE trip_id = :key)"
+                    ),
+                    {"key": source.primary_key},
+                )
+                await reader.execute(
+                    text("DELETE FROM event WHERE trip_id = :key"),
+                    {"key": source.primary_key},
+                )
+                await reader.execute(
+                    text("DELETE FROM waypoint WHERE trip_id = :key"),
+                    {"key": source.primary_key},
+                )
+                await reader.delete(source)
+                await reader.delete(owner)
+                await reader.commit()
+    finally:
+        await engine.dispose()

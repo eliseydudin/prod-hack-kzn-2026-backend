@@ -1,12 +1,21 @@
+import asyncio
 from datetime import UTC, date, datetime, timedelta, timezone
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import create_async_engine
+from sqlmodel import func, select
 
+from app.auth.tokens import encode_token
 from app.database import Session
+from app.database.connection import get_session
 from app.events.crud import list_events
+from app.main import app
+from app.models.auth import AuthToken
 from app.models.event import EventType
+from app.models.movement import MovementTable
 from app.models.ticket import (
     StayTicketRequest,
     TicketKind,
@@ -15,7 +24,9 @@ from app.models.ticket import (
 )
 from app.models.trip import CreateTripRequest
 from app.models.user import UserTable
+from app.models.waypoint import WaypointTable
 from app.points.crud import list_points
+from app.rate_limit import get_rate_limiter
 from app.responses import NotFoundError, ValidationError
 from app.settings import settings
 from app.tickets.crud import apply_ticket
@@ -126,3 +137,76 @@ async def test_ticket_apply_saves_owned_transfer_and_stay_once(ticket_session: S
     assert stay.event.waypoint_id == stay.points[0].id
     assert await list_events(session, owner, trip.id) == [stay.event]
     assert await list_points(session, owner, trip.id) == [*saved.points, *stay.points]
+
+
+async def test_ticket_cancellation_rolls_back_the_whole_graph(
+    ticket_session, monkeypatch
+):
+    session = ticket_session
+    owner = UserTable(username=f"cancel{uuid4().hex[:24]}", password=None)
+    session.add(owner)
+    await session.commit()
+    trip = await create_trip(
+        session,
+        owner,
+        CreateTripRequest(name="Cancellation", started_on=date(2026, 12, 10)),
+    )
+    request = TransferTicketRequest(
+        kind=TicketKind.TRAIN,
+        departure=TicketPoint(
+            name="Start", address="Station A", latitude=50, longitude=40
+        ),
+        arrival=TicketPoint(name="End", address="Station B", latitude=51, longitude=41),
+        started_at=datetime(2026, 12, 10, 12, tzinfo=UTC),
+    )
+    before = [
+        await session.scalar(select(func.count()).select_from(model))
+        for model in (WaypointTable, MovementTable)
+    ]
+
+    async def cancel_commit():
+        await session.flush()
+        asyncio.current_task().cancel()
+        await asyncio.sleep(0)
+
+    monkeypatch.setattr(session, "commit", cancel_commit)
+    with pytest.raises(asyncio.CancelledError):
+        await asyncio.create_task(apply_ticket(session, owner, trip.id, request))
+    assert [
+        await session.scalar(select(func.count()).select_from(model))
+        for model in (WaypointTable, MovementTable)
+    ] == before
+
+
+async def test_preview_rejects_invalid_extracted_text(ticket_session, monkeypatch):
+    session = ticket_session
+    owner = UserTable(username=f"preview{uuid4().hex[:24]}", password=None)
+    session.add(owner)
+    await session.commit()
+    trip = await create_trip(
+        session,
+        owner,
+        CreateTripRequest(name="Preview", started_on=date(2026, 12, 10)),
+    )
+    token = encode_token(AuthToken(sub=owner.id, role=owner.role))
+
+    async def sessions():
+        yield session
+
+    monkeypatch.setitem(app.dependency_overrides, get_session, sessions)
+    monkeypatch.setitem(app.dependency_overrides, get_rate_limiter, lambda: None)
+    monkeypatch.setattr(
+        "app.tickets.router.read_ticket_text",
+        AsyncMock(return_value="Hotel: Astoria\x00\nCheck-in: 2026-12-10T12:00Z"),
+    )
+    async with AsyncClient(
+        transport=ASGITransport(app=app, raise_app_exceptions=False),
+        base_url="http://test/api/v1",
+    ) as client:
+        response = await client.post(
+            f"trips/{trip.id}/tickets/preview",
+            headers={"Authorization": f"Bearer {token}"},
+            files={"file": ("ticket.pdf", b"%PDF-1.7", "application/pdf")},
+        )
+    assert response.status_code == 422, response.text
+    assert response.json()["errors"] == ["ticket_unsupported_document"]

@@ -22,7 +22,7 @@ from app.models.trip import TripTable
 from app.models.types.snowflake_id import SnowflakeId
 from app.models.user import UserTable
 from app.models.waypoint import Waypoint, WaypointTable
-from app.responses import NotFoundError, ValidationError
+from app.responses import ValidationError
 from app.tickets.timing import trip_time_issues
 from app.trips.crud import get_owned_trip
 from app.utils.snowflake_id import generate_snowflake_id_in_base_epoch
@@ -140,16 +140,7 @@ async def apply_ticket(
 ) -> TicketApplyResult:
     try:
         request = type(request).model_validate(request.model_dump())
-        await get_owned_trip(session, owner, trip_id)
-        locked_trip = await session.scalar(
-            select(TripTable)
-            .where(col(TripTable.id) == trip_id)
-            .with_for_update()
-            .execution_options(populate_existing=True)
-        )
-        if locked_trip is None:
-            raise NotFoundError
-        trip = await get_owned_trip(session, owner, trip_id)
+        trip = await get_owned_trip(session, owner, trip_id, lock=True)
         issues = trip_time_issues(
             request.started_at,
             request.ended_at,
@@ -168,7 +159,7 @@ async def apply_ticket(
     except PydanticValidationError as error:
         await session.rollback()
         raise ValidationError(errors=error.errors(include_input=False)) from error
-    except Exception:
+    except BaseException:
         await session.rollback()
         raise
     return result

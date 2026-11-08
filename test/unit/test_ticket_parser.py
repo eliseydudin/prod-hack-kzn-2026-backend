@@ -153,3 +153,9 @@ def test_parse_ticket_formats(text, kind, places):
 def test_parse_ticket_rejects_unusable_routes(text, reason):
     with pytest.raises(TicketParseError, match=reason):
         parse_ticket(text)
+
+
+@pytest.mark.parametrize("invalid", ["\x00", "\ud800"])
+def test_parse_ticket_rejects_unsupported_document_text(invalid):
+    with pytest.raises(TicketParseError, match="ticket_unsupported_document"):
+        parse_ticket(f"Hotel: Astoria{invalid}\nCheck-in: 2026-12-10T12:00Z")

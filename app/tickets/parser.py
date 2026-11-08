@@ -454,6 +454,8 @@ def _boarding_pass(lines: list[str]) -> ParsedTicket | None:
 
 
 def parse_ticket(text: str, kind_hint: TicketKind | None = None) -> ParsedTicket:
+    if any(char == "\x00" or "\ud800" <= char <= "\udfff" for char in text):
+        raise TicketParseError("ticket_unsupported_document")
     text = normalize("NFKC", text)
     layout_lines = [line for line in text.splitlines() if line.strip()]
     if boarding_pass := _boarding_pass(layout_lines):

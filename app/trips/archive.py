@@ -28,7 +28,7 @@ from app.utils.snowflake_id import generate_snowflake_id_in_base_epoch
 async def export_trip(
     session: Session, owner: UserTable, trip_id: SnowflakeId
 ) -> TripArchive:
-    trip = await get_owned_trip(session, owner, trip_id)
+    trip = await get_owned_trip(session, owner, trip_id, lock=True)
     points = (
         await session.scalars(
             select(WaypointTable)
