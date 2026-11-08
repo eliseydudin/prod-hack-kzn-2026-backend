@@ -1,0 +1,1710 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Активность, начало планирования и совместные поездки TravelHub в production. Новые показатели планирования заполняются после выкладки API и обновления сборщика.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 83,
+  "links": [
+    {
+      "icon": "dashboard",
+      "includeVars": false,
+      "keepTime": false,
+      "targetBlank": false,
+      "title": "Технический мониторинг",
+      "type": "link",
+      "url": "https://sage.spirit.t-education.com/grafana/d/travelhub-sage/travelhub-c2b7-sage?orgId=143"
+    }
+  ],
+  "panels": [
+    {
+      "id": 11,
+      "title": "Аккаунты с поездкой",
+      "description": "Доля включённых обычных аккаунтов, у которых есть хотя бы одна поездка.",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "tinkoff-grafana-mage-v2",
+        "uid": "P21BB2A4D622268FF"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "unit": "percentunit",
+          "decimals": 1,
+          "min": 0,
+          "noValue": "—"
+        }
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "text": {
+          "valueSize": 34
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "tinkoff-grafana-mage-v2",
+            "uid": "P21BB2A4D622268FF"
+          },
+          "expr": "pql max((travelhub_product_trip_owners{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} / (travelhub_product_enabled_accounts{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} > 0)) and (time() - travelhub_product_sample_timestamp_seconds{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} < 180))",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "Активные за сутки среди недельных",
+      "description": "Доля активных за последние 24 часа среди активных за последние 7 дней. Учитываются успешные запросы к планировщику.",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "datasource": {
+        "type": "tinkoff-grafana-mage-v2",
+        "uid": "P21BB2A4D622268FF"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "purple"
+          },
+          "unit": "percentunit",
+          "decimals": 1,
+          "min": 0,
+          "noValue": "—"
+        }
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "text": {
+          "valueSize": 34
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "tinkoff-grafana-mage-v2",
+            "uid": "P21BB2A4D622268FF"
+          },
+          "expr": "pql max((travelhub_product_active_users_24h{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} / (travelhub_product_active_users_7d{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} > 0)) and (time() - travelhub_product_sample_timestamp_seconds{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} < 180))",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "title": "Новые аккаунты с планом · 7 дн.",
+      "description": "Доля включённых аккаунтов, созданных за последние 7 дней, которые уже владеют поездкой с точкой или событием.",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "tinkoff-grafana-mage-v2",
+        "uid": "P21BB2A4D622268FF"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          },
+          "unit": "percentunit",
+          "decimals": 1,
+          "min": 0,
+          "noValue": "—"
+        }
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "text": {
+          "valueSize": 34
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "tinkoff-grafana-mage-v2",
+            "uid": "P21BB2A4D622268FF"
+          },
+          "expr": "pql max((travelhub_product_new_accounts_with_plan_7d{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} / (travelhub_product_new_enabled_accounts_7d{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} > 0)) and (time() - travelhub_product_planning_sample_timestamp_seconds{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} < 180))",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "title": "Новые поездки · 7 дн.",
+      "description": "Сохранившиеся поездки включённых обычных аккаунтов, созданные за последние 7 дней. Включает импортированные поездки.",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "datasource": {
+        "type": "tinkoff-grafana-mage-v2",
+        "uid": "P21BB2A4D622268FF"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "orange"
+          },
+          "unit": "short",
+          "decimals": 0,
+          "min": 0,
+          "noValue": "—"
+        }
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "text": {
+          "valueSize": 34
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "tinkoff-grafana-mage-v2",
+            "uid": "P21BB2A4D622268FF"
+          },
+          "expr": "pql max(travelhub_product_trips_created_7d{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} and (time() - travelhub_product_planning_sample_timestamp_seconds{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} < 180))",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "tinkoff-grafana-mage-v2",
+        "uid": "P21BB2A4D622268FF"
+      },
+      "description": "Три шага для одной скользящей группы включённых аккаунтов, созданных за последние 7 дней. Планом считается поездка с точкой или событием.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Аккаунты",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 12,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 0,
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Созданы"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Есть поездка"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "C"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Есть план"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      },
+      "id": 15,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.6.5",
+      "targets": [
+        {
+          "datasource": {
+            "type": "tinkoff-grafana-mage-v2",
+            "uid": "P21BB2A4D622268FF"
+          },
+          "expr": "pql max(travelhub_product_new_enabled_accounts_7d{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} and (time() - travelhub_product_planning_sample_timestamp_seconds{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} < 180))",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "tinkoff-grafana-mage-v2",
+            "uid": "P21BB2A4D622268FF"
+          },
+          "expr": "pql max(travelhub_product_new_accounts_with_trip_7d{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} and (time() - travelhub_product_planning_sample_timestamp_seconds{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} < 180))",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "tinkoff-grafana-mage-v2",
+            "uid": "P21BB2A4D622268FF"
+          },
+          "expr": "pql max(travelhub_product_new_accounts_with_plan_7d{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} and (time() - travelhub_product_planning_sample_timestamp_seconds{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} < 180))",
+          "refId": "C"
+        }
+      ],
+      "title": "Путь новых аккаунтов · 7 дн.",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "tinkoff-grafana-mage-v2",
+        "uid": "P21BB2A4D622268FF"
+      },
+      "description": "Текущие поездки включённых обычных аккаунтов. Совместной считается поездка хотя бы с одним присоединившимся участником.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Поездки",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 12,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 0,
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Все поездки"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "С точкой или событием"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "C"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Совместные"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 4
+      },
+      "id": 16,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.6.5",
+      "targets": [
+        {
+          "datasource": {
+            "type": "tinkoff-grafana-mage-v2",
+            "uid": "P21BB2A4D622268FF"
+          },
+          "expr": "pql max(travelhub_product_trips{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} and (time() - travelhub_product_planning_sample_timestamp_seconds{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} < 180))",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "tinkoff-grafana-mage-v2",
+            "uid": "P21BB2A4D622268FF"
+          },
+          "expr": "pql max(travelhub_product_trips_with_plan{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} and (time() - travelhub_product_planning_sample_timestamp_seconds{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} < 180))",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "tinkoff-grafana-mage-v2",
+            "uid": "P21BB2A4D622268FF"
+          },
+          "expr": "pql max(travelhub_product_shared_trips{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} and (time() - travelhub_product_planning_sample_timestamp_seconds{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} < 180))",
+          "refId": "C"
+        }
+      ],
+      "title": "Наполнение поездок",
+      "type": "timeseries"
+    },
+    {
+      "id": 17,
+      "title": "Доля поездок с планом",
+      "description": "Доля поездок, в которых есть хотя бы одна точка или событие.",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 0,
+        "y": 12
+      },
+      "datasource": {
+        "type": "tinkoff-grafana-mage-v2",
+        "uid": "P21BB2A4D622268FF"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          },
+          "unit": "percentunit",
+          "decimals": 1,
+          "min": 0,
+          "noValue": "—"
+        }
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "text": {
+          "valueSize": 34
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "tinkoff-grafana-mage-v2",
+            "uid": "P21BB2A4D622268FF"
+          },
+          "expr": "pql max((travelhub_product_trips_with_plan{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} / (travelhub_product_trips{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} > 0)) and (time() - travelhub_product_planning_sample_timestamp_seconds{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} < 180))",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "title": "Доля совместных поездок",
+      "description": "Доля поездок, в которых есть хотя бы один присоединившийся участник.",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 8,
+        "y": 12
+      },
+      "datasource": {
+        "type": "tinkoff-grafana-mage-v2",
+        "uid": "P21BB2A4D622268FF"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "purple"
+          },
+          "unit": "percentunit",
+          "decimals": 1,
+          "min": 0,
+          "noValue": "—"
+        }
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "text": {
+          "valueSize": 34
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "tinkoff-grafana-mage-v2",
+            "uid": "P21BB2A4D622268FF"
+          },
+          "expr": "pql max((travelhub_product_shared_trips{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} / (travelhub_product_trips{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} > 0)) and (time() - travelhub_product_planning_sample_timestamp_seconds{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} < 180))",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "title": "Владельцы нескольких поездок",
+      "description": "Доля владельцев, у которых сохранилось две поездки или больше.",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 16,
+        "y": 12
+      },
+      "datasource": {
+        "type": "tinkoff-grafana-mage-v2",
+        "uid": "P21BB2A4D622268FF"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "unit": "percentunit",
+          "decimals": 1,
+          "min": 0,
+          "noValue": "—"
+        }
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "text": {
+          "valueSize": 34
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "tinkoff-grafana-mage-v2",
+            "uid": "P21BB2A4D622268FF"
+          },
+          "expr": "pql max((travelhub_product_repeat_trip_owners{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} / (travelhub_product_trip_owners{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} > 0)) and (time() - travelhub_product_planning_sample_timestamp_seconds{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} < 180))",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "title": "Активность и исходные показатели",
+      "type": "row",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      }
+    },
+    {
+      "datasource": {
+        "type": "tinkoff-grafana-mage-v2",
+        "uid": "P21BB2A4D622268FF"
+      },
+      "description": "Уникальные обычные аккаунты с успешным действием в разделе поездок за последние 24 часа.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "blue",
+            "mode": "fixed"
+          },
+          "decimals": 0,
+          "mappings": [],
+          "noValue": "—",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 17
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "text": {
+          "valueSize": 34
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.6.5",
+      "targets": [
+        {
+          "datasource": {
+            "type": "tinkoff-grafana-mage-v2",
+            "uid": "P21BB2A4D622268FF"
+          },
+          "expr": "pql max(travelhub_product_active_users_24h{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} and (time() - travelhub_product_sample_timestamp_seconds{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} < 180))",
+          "refId": "A"
+        }
+      ],
+      "title": "Активные за 24 часа",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "tinkoff-grafana-mage-v2",
+        "uid": "P21BB2A4D622268FF"
+      },
+      "description": "Уникальные обычные аккаунты с успешным действием в разделе поездок за последние 7 дней.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "purple",
+            "mode": "fixed"
+          },
+          "decimals": 0,
+          "mappings": [],
+          "noValue": "—",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 17
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "text": {
+          "valueSize": 34
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.6.5",
+      "targets": [
+        {
+          "datasource": {
+            "type": "tinkoff-grafana-mage-v2",
+            "uid": "P21BB2A4D622268FF"
+          },
+          "expr": "pql max(travelhub_product_active_users_7d{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} and (time() - travelhub_product_sample_timestamp_seconds{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} < 180))",
+          "refId": "A"
+        }
+      ],
+      "title": "Активные за 7 дней",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "tinkoff-grafana-mage-v2",
+        "uid": "P21BB2A4D622268FF"
+      },
+      "description": "Обычные аккаунты, созданные за последние 24 часа, включая созданные администратором.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "orange",
+            "mode": "fixed"
+          },
+          "decimals": 0,
+          "mappings": [],
+          "noValue": "—",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 17
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "text": {
+          "valueSize": 34
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.6.5",
+      "targets": [
+        {
+          "datasource": {
+            "type": "tinkoff-grafana-mage-v2",
+            "uid": "P21BB2A4D622268FF"
+          },
+          "expr": "pql max(travelhub_product_new_accounts_24h{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} and (time() - travelhub_product_sample_timestamp_seconds{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} < 180))",
+          "refId": "A"
+        }
+      ],
+      "title": "Новые аккаунты · 24 ч",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "tinkoff-grafana-mage-v2",
+        "uid": "P21BB2A4D622268FF"
+      },
+      "description": "Доля владельцев поездок, у которых сейчас есть хотя бы одно событие с временем и точкой на карте. Если владельцев нет, доля не рассчитывается.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "green",
+            "mode": "fixed"
+          },
+          "decimals": 1,
+          "mappings": [],
+          "max": 1,
+          "min": 0,
+          "noValue": "—",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 17
+      },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "text": {
+          "valueSize": 34
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.6.5",
+      "targets": [
+        {
+          "datasource": {
+            "type": "tinkoff-grafana-mage-v2",
+            "uid": "P21BB2A4D622268FF"
+          },
+          "expr": "pql max((travelhub_product_trip_owners_with_mapped_events{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} / (travelhub_product_trip_owners{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} > 0)) and (time() - travelhub_product_sample_timestamp_seconds{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} < 180))",
+          "refId": "A"
+        }
+      ],
+      "title": "Активация",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "tinkoff-grafana-mage-v2",
+        "uid": "P21BB2A4D622268FF"
+      },
+      "description": "Скользящие окна. Повторные действия одного аккаунта в окне учитываются один раз.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Аккаунты",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 12,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 0,
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "За 24 часа"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "За 7 дней"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "C"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Новые за 24 часа"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 21
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.6.5",
+      "targets": [
+        {
+          "datasource": {
+            "type": "tinkoff-grafana-mage-v2",
+            "uid": "P21BB2A4D622268FF"
+          },
+          "expr": "pql max(travelhub_product_active_users_24h{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} and (time() - travelhub_product_sample_timestamp_seconds{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} < 180))",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "tinkoff-grafana-mage-v2",
+            "uid": "P21BB2A4D622268FF"
+          },
+          "expr": "pql max(travelhub_product_active_users_7d{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} and (time() - travelhub_product_sample_timestamp_seconds{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} < 180))",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "tinkoff-grafana-mage-v2",
+            "uid": "P21BB2A4D622268FF"
+          },
+          "expr": "pql max(travelhub_product_new_accounts_24h{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} and (time() - travelhub_product_sample_timestamp_seconds{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} < 180))",
+          "refId": "C"
+        }
+      ],
+      "title": "Динамика активности",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "tinkoff-grafana-mage-v2",
+        "uid": "P21BB2A4D622268FF"
+      },
+      "description": "Текущие владельцы поездок и владельцы с событием на карте. Учитываются события, добавленные любым участником поездки.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Аккаунты",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 12,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "pointSize": 4,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 0,
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Владельцы поездок"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "С событием на карте"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 21
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.6.5",
+      "targets": [
+        {
+          "datasource": {
+            "type": "tinkoff-grafana-mage-v2",
+            "uid": "P21BB2A4D622268FF"
+          },
+          "expr": "pql max(travelhub_product_trip_owners{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} and (time() - travelhub_product_sample_timestamp_seconds{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} < 180))",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "tinkoff-grafana-mage-v2",
+            "uid": "P21BB2A4D622268FF"
+          },
+          "expr": "pql max(travelhub_product_trip_owners_with_mapped_events{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} and (time() - travelhub_product_sample_timestamp_seconds{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} < 180))",
+          "refId": "B"
+        }
+      ],
+      "title": "Использование планировщика",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "tinkoff-grafana-mage-v2",
+        "uid": "P21BB2A4D622268FF"
+      },
+      "description": "Текущее число включённых обычных аккаунтов.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "text",
+            "mode": "fixed"
+          },
+          "decimals": 0,
+          "mappings": [],
+          "noValue": "—",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 30
+      },
+      "id": 7,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "text": {
+          "valueSize": 34
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.6.5",
+      "targets": [
+        {
+          "datasource": {
+            "type": "tinkoff-grafana-mage-v2",
+            "uid": "P21BB2A4D622268FF"
+          },
+          "expr": "pql max(travelhub_product_enabled_accounts{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} and (time() - travelhub_product_sample_timestamp_seconds{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} < 180))",
+          "refId": "A"
+        }
+      ],
+      "title": "Включённые аккаунты",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "tinkoff-grafana-mage-v2",
+        "uid": "P21BB2A4D622268FF"
+      },
+      "description": "Включённые обычные аккаунты с одной или несколькими поездками.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "blue",
+            "mode": "fixed"
+          },
+          "decimals": 0,
+          "mappings": [],
+          "noValue": "—",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 30
+      },
+      "id": 8,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "text": {
+          "valueSize": 34
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.6.5",
+      "targets": [
+        {
+          "datasource": {
+            "type": "tinkoff-grafana-mage-v2",
+            "uid": "P21BB2A4D622268FF"
+          },
+          "expr": "pql max(travelhub_product_trip_owners{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} and (time() - travelhub_product_sample_timestamp_seconds{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} < 180))",
+          "refId": "A"
+        }
+      ],
+      "title": "Владельцы поездок",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "tinkoff-grafana-mage-v2",
+        "uid": "P21BB2A4D622268FF"
+      },
+      "description": "Владельцы, в чьих поездках есть хотя бы одно событие с привязанной точкой.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "green",
+            "mode": "fixed"
+          },
+          "decimals": 0,
+          "mappings": [],
+          "noValue": "—",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 30
+      },
+      "id": 9,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "text": {
+          "valueSize": 34
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.6.5",
+      "targets": [
+        {
+          "datasource": {
+            "type": "tinkoff-grafana-mage-v2",
+            "uid": "P21BB2A4D622268FF"
+          },
+          "expr": "pql max(travelhub_product_trip_owners_with_mapped_events{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} and (time() - travelhub_product_sample_timestamp_seconds{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} < 180))",
+          "refId": "A"
+        }
+      ],
+      "title": "С событием на карте",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "tinkoff-grafana-mage-v2",
+        "uid": "P21BB2A4D622268FF"
+      },
+      "description": "Время последнего замера, полученного из Sage в выбранном диапазоне.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "text",
+            "mode": "fixed"
+          },
+          "decimals": 0,
+          "mappings": [],
+          "noValue": "—",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "dateTimeFromNow"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 30
+      },
+      "id": 10,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "text": {
+          "valueSize": 34
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.6.5",
+      "targets": [
+        {
+          "datasource": {
+            "type": "tinkoff-grafana-mage-v2",
+            "uid": "P21BB2A4D622268FF"
+          },
+          "expr": "pql max(travelhub_product_sample_timestamp_seconds{group=\"hack-kzn-05\",env=\"prod\",system=\"travelhub\"} * 1000)",
+          "refId": "A"
+        }
+      ],
+      "title": "Последний замер",
+      "type": "stat"
+    }
+  ],
+  "preload": false,
+  "refresh": "1m",
+  "schemaVersion": 41,
+  "tags": [
+    "travelhub",
+    "product",
+    "prod"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "TravelHub · Продуктовые метрики",
+  "uid": "travelhub-product",
+  "version": 2
+}

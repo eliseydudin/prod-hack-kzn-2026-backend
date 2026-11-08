@@ -6,7 +6,7 @@ from logging import getLogger
 from time import time
 
 from fastapi import BackgroundTasks
-from sqlalchemy import distinct
+from sqlalchemy import distinct, true
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import col, func, select
 from valkey.asyncio import Valkey
@@ -14,10 +14,12 @@ from valkey.exceptions import ValkeyError
 
 from app.auth.tokens import CurrentUser
 from app.database import get_session_ctx
+from app.models.collaborator import CollaboratorTable
 from app.models.event import EventTable
 from app.models.trip import TripTable
 from app.models.types.time import utc_now
 from app.models.user import UserRole, UserTable
+from app.models.waypoint import WaypointTable
 from app.rate_limit import VALKEY_TIMEOUT, RateLimiter, RateLimiterDep
 
 logger = getLogger(__name__)
@@ -53,41 +55,64 @@ async def _active_users(client: Valkey, now: datetime) -> dict[str, int]:
 
 
 async def _account_metrics(now: datetime) -> dict[str, int]:
+    enabled = col(UserTable.enabled).is_(True)
+    recent_account = col(UserTable.created_at) > now - WEEK
+    trip_id = col(TripTable.primary_key)
+    owner_id = col(TripTable.owner_id)
+    owners = func.count(distinct(owner_id))
+    trips = func.count()
+    has_plan = trip_id.in_(select(col(WaypointTable.trip_id))) | trip_id.in_(
+        select(col(EventTable.trip_id))
+    )
+    has_mapped_event = trip_id.in_(
+        select(col(EventTable.trip_id)).where(
+            col(EventTable.waypoint_primary_key).is_not(None)
+        )
+    )
+    is_shared = trip_id.in_(select(col(CollaboratorTable.trip_id)))
+    has_multiple_trips = owner_id.in_(
+        select(owner_id).group_by(owner_id).having(func.count() > 1)
+    )
+    accounts = (
+        select(
+            func.count().filter(enabled).label("enabled_accounts"),
+            func.count()
+            .filter(col(UserTable.created_at) > now - DAY)
+            .label("new_accounts_24h"),
+            func.count()
+            .filter(enabled, recent_account)
+            .label("new_enabled_accounts_7d"),
+        )
+        .select_from(UserTable)
+        .where(col(UserTable.role) == UserRole.USER)
+        .subquery()
+    )
+    planning = (
+        select(
+            owners.label("trip_owners"),
+            owners.filter(has_mapped_event).label("trip_owners_with_mapped_events"),
+            owners.filter(recent_account).label("new_accounts_with_trip_7d"),
+            owners.filter(recent_account, has_plan).label("new_accounts_with_plan_7d"),
+            owners.filter(has_multiple_trips).label("repeat_trip_owners"),
+            trips.label("trips"),
+            trips.filter(col(TripTable.created_at) > now - WEEK).label(
+                "trips_created_7d"
+            ),
+            trips.filter(has_plan).label("trips_with_plan"),
+            trips.filter(is_shared).label("shared_trips"),
+        )
+        .select_from(TripTable)
+        .join(UserTable, col(UserTable.primary_key) == owner_id)
+        .where(col(UserTable.role) == UserRole.USER, enabled)
+        .subquery()
+    )
     async with get_session_ctx() as session:
-        enabled, new = (
-            await session.execute(
-                select(
-                    func.count().filter(col(UserTable.enabled).is_(True)),
-                    func.count().filter(col(UserTable.created_at) > now - DAY),
-                )
-                .select_from(UserTable)
-                .where(col(UserTable.role) == UserRole.USER)
+        result = await session.execute(
+            select(*accounts.c, *planning.c).select_from(
+                accounts.join(planning, true())
             )
-        ).one()
-        owners = func.count(distinct(col(TripTable.owner_id)))
-        with_trips, with_mapped_events = (
-            await session.execute(
-                select(
-                    owners,
-                    owners.filter(col(EventTable.waypoint_primary_key).is_not(None)),
-                )
-                .select_from(TripTable)
-                .join(UserTable, col(UserTable.primary_key) == col(TripTable.owner_id))
-                .outerjoin(
-                    EventTable, col(EventTable.trip_id) == col(TripTable.primary_key)
-                )
-                .where(
-                    col(UserTable.role) == UserRole.USER,
-                    col(UserTable.enabled).is_(True),
-                )
-            )
-        ).one()
-    return {
-        "enabled_accounts": enabled,
-        "new_accounts_24h": new,
-        "trip_owners": with_trips,
-        "trip_owners_with_mapped_events": with_mapped_events,
-    }
+        )
+    return dict(result.mappings().one())
 
 
 async def _publish_snapshots(client: Valkey) -> None:
