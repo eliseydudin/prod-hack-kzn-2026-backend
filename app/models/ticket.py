@@ -19,8 +19,6 @@ from app.models.waypoint import Waypoint, WaypointLocation
 
 
 class TicketKind(StrEnum):
-    """plane — авиабилет, train — поезд, ship — судно, stay — гостиница."""
-
     PLANE = "plane"
     TRAIN = "train"
     SHIP = "ship"
@@ -33,23 +31,11 @@ TicketPlaceText = Annotated[
 
 
 class TicketPoint(WaypointLocation):
-    """Подтверждённая точка: latitude — широта [-90, 90], longitude — долгота [-180, 180]."""
-
-    name: TicketPlaceText = Field(
-        min_length=1,
-        max_length=128,
-        description="Название аэропорта, вокзала, причала или гостиницы.",
-    )
-    address: TicketPlaceText = Field(
-        min_length=1,
-        max_length=512,
-        description="Подтверждённый адрес, который сохранится в описании точки.",
-    )
+    name: TicketPlaceText = Field(min_length=1, max_length=128)
+    address: TicketPlaceText = Field(min_length=1, max_length=512)
 
 
 class TicketPlaceMatch(Base):
-    """Распознанное место. Для apply используйте вложенный point; null требует выбора координат."""
-
     name: str
     address: str | None = None
     iata: str | None = None
@@ -57,8 +43,6 @@ class TicketPlaceMatch(Base):
 
 
 class TicketTimeHint(Base):
-    """Локальное время из документа, когда ещё нужно подтвердить дату или часовой пояс."""
-
     month: int
     day: int
     local_time: time
@@ -67,8 +51,6 @@ class TicketTimeHint(Base):
 
 
 class TicketIssue(Base):
-    """Поле и причина, мешающие автоматическому подтверждению; исправьте их перед apply."""
-
     field: Literal["departure", "arrival", "stay", "startedAt", "endedAt"]
     code: Literal[
         "point_required",
@@ -82,8 +64,6 @@ class TicketIssue(Base):
 
 
 class TicketPreview(Base):
-    """Результат разбора без сохранения. Неполные данные возвращаются с issues и HTTP 200."""
-
     kind: TicketKind
     departure: TicketPlaceMatch | None = None
     arrival: TicketPlaceMatch | None = None
@@ -94,22 +74,15 @@ class TicketPreview(Base):
     ended_at_hint: TicketTimeHint | None = None
     issues: list[TicketIssue] = Field(default_factory=list)
 
-    @computed_field(
-        description="true, если распознаватель не нашёл полей, требующих уточнения. Перед сохранением пользователь подтверждает данные."
-    )
+    @computed_field
     @property
     def ready_to_apply(self) -> bool:
         return not self.issues
 
 
 class TicketTimes(Base):
-    started_at: Timestamp = Field(
-        description="Время отправления/заселения с UTC-смещением. Например, 2026-12-10T15:00:00+03:00."
-    )
-    ended_at: Timestamp | None = Field(
-        default=None,
-        description="Время прибытия/выселения с UTC-смещением. Необязательно; не раньше startedAt.",
-    )
+    started_at: Timestamp
+    ended_at: Timestamp | None = None
 
     @field_validator("started_at", "ended_at")
     @classmethod
@@ -129,16 +102,12 @@ class TicketTimes(Base):
 
 
 class TransferTicketRequest(TicketTimes):
-    """Подтверждённый авиабилет, поезд или судно: две точки и время перемещения."""
-
     kind: Literal[TicketKind.PLANE, TicketKind.TRAIN, TicketKind.SHIP]
     departure: TicketPoint
     arrival: TicketPoint
 
 
 class StayTicketRequest(TicketTimes):
-    """Подтверждённая гостиница: точка stay, startedAt — заселение, endedAt — выселение."""
-
     kind: Literal[TicketKind.STAY]
     stay: TicketPoint
 
@@ -149,14 +118,6 @@ TicketApplyRequest = Annotated[
 
 
 class TicketApplyResult(Base):
-    points: list[Waypoint] = Field(
-        description="Созданные или повторно использованные точки поездки."
-    )
-    transfer: Movement | None = Field(
-        default=None,
-        description="Сохранённое перемещение для plane/train/ship; null для гостиницы.",
-    )
-    event: Event | None = Field(
-        default=None,
-        description="Сохранённое событие stay для гостиницы; null для транспортного билета.",
-    )
+    points: list[Waypoint]
+    transfer: Movement | None = None
+    event: Event | None = None

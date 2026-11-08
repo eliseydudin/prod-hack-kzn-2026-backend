@@ -9,7 +9,6 @@ from starlette.concurrency import run_in_threadpool
 
 from app.admin.router import router as admin_router
 from app.auth.impl import create_bootstrap_user
-from app.auth.router import change_password
 from app.auth.router import router as auth_router
 from app.database import get_session_ctx, setup_tables
 from app.events.router import router as events_router
@@ -19,7 +18,6 @@ from app.integrations.google_drive.middleware import (
     GoogleDriveMiddleware,
     handle_upload_limit,
 )
-from app.integrations.google_drive.router import callback as google_drive_callback
 from app.integrations.google_drive.router import router as google_drive_router
 from app.models.status import Status
 from app.points.router import router as points_router
@@ -121,13 +119,8 @@ async def handle_http_exceptions(_app, error: HTTPException):
 
 
 @app.exception_handler(RequestValidationError)
-async def handle_validation_error(request: Request, error: RequestValidationError):
+async def handle_validation_error(_request: Request, error: RequestValidationError):
     validation_error = ValidationError.from_fastapi(error)
-    if request.scope.get("endpoint") in (change_password, google_drive_callback):
-        validation_error.errors = [
-            {key: value for key, value in item.items() if key != "input"}
-            for item in validation_error.errors
-        ]
     return ErrorResponse(
         validation_error.dump_python(),
         status_code=ValidationError.status_code,
