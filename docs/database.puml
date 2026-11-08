@@ -38,6 +38,11 @@ entity Trip {
 	* updated_at <<timestamptz>>
 }
 
+entity Collaborator {
+	* trip_id
+	* user_id
+}
+
 entity Waypoint {
 	* primary_key <<generated>>
 	* id <<snowflake>>
@@ -83,6 +88,9 @@ User ||--o{ Trip : owner
 Trip ||--o{ Waypoint
 Waypoint ||--o{ Movement : starts_at_waypoint, ends_at_waypoint
 Trip ||--o{ Event
+User ||--o{ Collaborator
+Trip ||--o{ Collaborator
+
 entity GoogleDriveConnection {
     * primary_key <<generated>>
     * user_id <<unique, FK User>>

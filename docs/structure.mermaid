@@ -1,19 +1,40 @@
-flowchart LR
-	subgraph Docker
-		Backend
-		Frontend
-		DB[(PostgreSQL)]
-		Cache[(Valkey)]
-		Proxy[Nginx]
-		Certbot
-	end
+flowchart TB
+    subgraph external["Внешние вызовы"]
+        Client["Вебсайт"]
+    end
 
-	User[User]
+    subgraph api["Web Application (контейнер API)"]
+    		Gateway["API Gateway"]
+    		Users["Users & Auth / Менеджер пользователей и JWT"]
+      	Trips["Trips / Менеджер путешествий"]
+       	Notifs["Notifications / Пуш уведомления"]
+        Files["Files / Файлы"]
+        Integ["Integrations / Интеграция с Google Drive"]
+        ORM["ORM / Persistence\n(SQLModel → PostgreSQL)"]
+        Worker["Celery Worker"]
+        Rl["Rate-limiter"]
+    end
 
-	User --> Proxy
-	Proxy --> Backend
-	Proxy --> Frontend
-	Proxy --> Certbot
-	Frontend --> Backend
-	Backend --> DB
-	Backend --> Cache
+    subgraph services["Сервисы приложения"]
+    	Cache[("Redis-подобный кэш (Valkey)")]
+     	DB[(PostgreSQL)]
+      S3[("S3-подобное хранилище (RustFS)")]
+    end
+
+    Client -->|"Веб запросы"| Gateway
+    
+    Gateway --> Trips
+    Gateway --> Notifs
+    Gateway --> Files
+    Gateway --> Integ
+    Users --> ORM
+    Trips --> ORM
+    Integ --> ORM
+    Files --> ORM
+    Files --> S3
+    Notifs --> Worker
+    Worker --> Cache
+    ORM --> DB
+    Gateway --> Rl
+    Rl --> Cache
+    Rl --> Users
