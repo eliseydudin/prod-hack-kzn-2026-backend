@@ -101,7 +101,7 @@ RateLimiterDep = Annotated[RateLimiter | None, Depends(get_rate_limiter)]
 async def rate_limit_lifespan():
     limiter = _get_rate_limiter()
     try:
-        yield
+        yield limiter
     finally:
         _get_rate_limiter.cache_clear()
         if limiter is not None:
