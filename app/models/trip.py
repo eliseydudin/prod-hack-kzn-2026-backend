@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Annotated
 from pydantic import (
     AfterValidator,
     HttpUrl,
+    StringConstraints,
     TypeAdapter,
     model_validator,
 )
@@ -105,11 +106,9 @@ class CreateTripRequest(TripBase):
 
 class UpdateTripRequest(Base):
     name: MaybeMissing[str] = Field(default=MISSING, min_length=1, max_length=128)
-    description: MaybeMissing[str | None] = Field(
-        default=MISSING,
-        min_length=1,
-        max_length=512,
-    )
+    description: MaybeMissing[
+        Annotated[str, StringConstraints(min_length=1, max_length=512)] | None
+    ] = MISSING
     started_on: MaybeMissing[date] = Field(default=MISSING)
     ended_on: MaybeMissing[date | None] = Field(default=MISSING)
     cover: MaybeMissing[CoverLink | None] = Field(default=MISSING)

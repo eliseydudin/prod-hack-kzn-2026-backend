@@ -4,9 +4,16 @@ import pytest
 
 from app.auth.hasher import check_password, hash_password
 from app.database import get_session_ctx
+from app.database.connection import engine
 from app.models.user import CreateUserRequest, UserRole, UserTable
 from app.responses import ConflictError, ErrorCode
 from app.users import create_user, get_user_by_id
+
+
+@pytest.fixture(autouse=True)
+async def dispose_pool():
+    yield
+    await engine.dispose()
 
 
 async def test_create_user():

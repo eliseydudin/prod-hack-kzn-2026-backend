@@ -1,4 +1,6 @@
-from pydantic import model_validator
+from typing import Annotated
+
+from pydantic import StringConstraints, model_validator
 from pydantic_core import MISSING
 from sqlmodel import Field, Relationship
 
@@ -68,9 +70,9 @@ class UpdateMovementRequest(Base):
     transport_type: MaybeMissing[str] = Field(
         default=MISSING, min_length=1, max_length=128
     )
-    description: MaybeMissing[str | None] = Field(
-        default=MISSING, min_length=1, max_length=512
-    )
+    description: MaybeMissing[
+        Annotated[str, StringConstraints(min_length=1, max_length=512)] | None
+    ] = MISSING
     started_at: MaybeMissing[Timestamp] = MISSING
     ended_at: MaybeMissing[Timestamp | None] = MISSING
     starts_at_waypoint_id: MaybeMissing[SnowflakeId] = MISSING

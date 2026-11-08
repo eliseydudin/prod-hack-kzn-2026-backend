@@ -17,10 +17,11 @@ from app.main import app
 from app.models.auth import AuthToken
 from app.models.collaborator import CollaboratorTable
 from app.models.event import EventTable, EventType
+from app.models.movement import MovementTable
 from app.models.trip import TripInviteLinkTable, TripTable
 from app.models.user import UserTable
 from app.models.waypoint import WaypointTable
-from app.rate_limit import rate_limit_lifespan
+from app.rate_limit import get_rate_limiter
 from app.settings import settings
 from app.storage import get_storage
 
@@ -61,14 +62,12 @@ async def collab_api():
     previous = app.dependency_overrides.copy()
     app.dependency_overrides[get_session] = sessions
     app.dependency_overrides[get_storage] = lambda: storage
+    app.dependency_overrides[get_rate_limiter] = lambda: None
     try:
-        async with (
-            rate_limit_lifespan(),
-            httpx.AsyncClient(
-                transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),
-                base_url="http://test",
-            ) as client,
-        ):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),
+            base_url="http://test",
+        ) as client:
             yield SimpleNamespace(
                 client=client,
                 maker=maker,
@@ -83,6 +82,15 @@ async def collab_api():
         app.dependency_overrides.clear()
         app.dependency_overrides.update(previous)
         async with maker() as session:
+            point_keys = select(WaypointTable.primary_key).where(
+                WaypointTable.trip_id == trip_key
+            )
+            await session.execute(
+                delete(MovementTable).where(
+                    col(MovementTable.starts_at_waypoint_id).in_(point_keys)
+                    | col(MovementTable.ends_at_waypoint_id).in_(point_keys)
+                )
+            )
             await session.execute(
                 delete(EventTable).where(EventTable.trip_id == trip_key)
             )
@@ -342,3 +350,48 @@ async def test_narrowing_trip_dates_cannot_exclude_existing_event(collab_api):
         and trip.started_on == date(2026, 12, 10)
         and trip.ended_on == date(2026, 12, 13)
     )
+
+
+@pytest.mark.parametrize("resource", ["trip", "transfer"])
+async def test_patch_can_clear_description_and_preserve_other_fields(
+    collab_api, resource
+):
+    api = collab_api
+    headers = api.headers[0]
+    path = api.base
+    if resource == "transfer":
+        points = []
+        for name in ("Station", "Hotel"):
+            response = await api.client.post(
+                f"{api.base}/points",
+                headers=headers,
+                json={"name": name, "latitude": 55.8, "longitude": 49.1},
+            )
+            assert response.status_code == 201, response.text
+            points.append(response.json()["id"])
+        response = await api.client.post(
+            f"{api.base}/transfers",
+            headers=headers,
+            json={
+                "transportType": "train",
+                "startedAt": "2026-12-10T09:00:00Z",
+                "startsAtWaypointId": points[0],
+                "endsAtWaypointId": points[1],
+                "description": "Main entrance",
+            },
+        )
+        assert response.status_code == 201, response.text
+        path = f"{api.base}/transfers/{response.json()['id']}"
+    else:
+        response = await api.client.patch(
+            path, headers=headers, json={"description": "Main entrance"}
+        )
+        assert response.status_code == 200, response.text
+
+    before = (await api.client.get(path, headers=headers)).json()
+    response = await api.client.patch(path, headers=headers, json={"description": None})
+    assert response.status_code == 200, response.text
+    after = (await api.client.get(path, headers=headers)).json()
+    assert after["description"] is None
+    for field in before.keys() - {"description", "updatedAt"}:
+        assert after[field] == before[field]
