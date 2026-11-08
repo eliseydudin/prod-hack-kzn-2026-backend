@@ -28,7 +28,12 @@ from app.models.auth import AuthToken
 from app.models.google_drive import GoogleDriveConnectionTable, GoogleDriveExportTable
 from app.models.types.time import utc_now
 from app.models.user import UserTable
-from app.rate_limit import RateLimiter, create_rate_limit_client, get_rate_limiter
+from app.rate_limit import (
+    RateLimiter,
+    create_rate_limit_client,
+    get_rate_limiter,
+    rate_limit_lifespan,
+)
 from app.responses import BadRequestError, ConflictError, ServiceUnavailableError
 from app.settings import Settings, settings
 
@@ -139,11 +144,14 @@ async def drive_env(monkeypatch):
             session.add_all([owner, other])
             await session.commit()
             service = DriveService(session, provider, config)
-            async with httpx.AsyncClient(
-                transport=httpx.ASGITransport(app=app),
-                base_url="https://travel.test/api/v1",
-                follow_redirects=False,
-            ) as client:
+            async with (
+                rate_limit_lifespan(),
+                httpx.AsyncClient(
+                    transport=httpx.ASGITransport(app=app),
+                    base_url="https://travel.test/api/v1",
+                    follow_redirects=False,
+                ) as client,
+            ):
                 yield SimpleNamespace(
                     session=session,
                     service=service,
@@ -403,6 +411,58 @@ async def test_photo_export_is_owner_scoped_and_idempotent(drive_env):
     )
     assert response.status_code == 409
     assert env.provider.uploads == 1
+
+
+@pytest.mark.parametrize(
+    "image_format,mime", [("JPEG", "image/jpeg"), ("PNG", "image/png")]
+)
+async def test_http_photo_export_uses_actual_image_format(
+    drive_env, image_format, mime
+):
+    env = drive_env
+    await connect_account(env)
+    stream = BytesIO()
+    Image.new("RGB", (3, 2), "blue").save(stream, format=image_format)
+    response = await env.client.post(
+        "integrations/google-drive/photo-exports",
+        headers={**auth(env.owner), "Idempotency-Key": "actual-format"},
+        files={"file": ("image.txt", stream.getvalue(), "text/plain")},
+    )
+    assert response.status_code == 201, response.text
+    result = response.json()
+    assert result["mimeType"] == mime
+    assert env.provider.files[result["driveFileId"]]["mimeType"] == mime
+    assert response.headers["cache-control"] == "no-store"
+
+
+@pytest.mark.parametrize(
+    "image_format,truncated,max_bytes,status_code,reason",
+    [
+        ("GIF", False, 10000, 415, "photo_format_unsupported"),
+        ("JPEG", True, 10000, 400, "photo_invalid"),
+        ("PNG", False, 10, 413, "photo_too_large"),
+    ],
+)
+async def test_http_photo_export_rejects_media_before_google_upload(
+    drive_env, monkeypatch, image_format, truncated, max_bytes, status_code, reason
+):
+    env = drive_env
+    await connect_account(env)
+    monkeypatch.setattr(settings, "google_drive_max_photo_bytes", max_bytes)
+    stream = BytesIO()
+    Image.new("RGB", (3, 2), "blue").save(stream, format=image_format)
+    data = stream.getvalue()
+    response = await env.client.post(
+        "integrations/google-drive/photo-exports",
+        headers={**auth(env.owner), "Idempotency-Key": "invalid-format"},
+        files={"file": ("image.png", data[:-10] if truncated else data, "image/png")},
+    )
+    assert response.status_code == status_code, response.text
+    assert response.json()["detail"]["reason"] == reason
+    assert response.headers["cache-control"] == "no-store"
+    assert response.headers["referrer-policy"] == "no-referrer"
+    assert env.provider.uploads == 0
+    assert not env.provider.files
 
 
 async def test_uncertain_upload_is_reconciled_after_new_session_without_duplicate(
